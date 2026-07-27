@@ -36,9 +36,6 @@ spring:
           azure:
             issuer-uri: https://login.microsoftonline.com/${AZURE_TENANT_ID}/v2.0
         registration:
-          github:
-            clientId: ${CLIENT_ID}
-            clientSecret: ${CLIENT_SECRET}
           azure:
             provider: azure
             client-id: ${AZURE_CLIENT_ID}

@@ -1,11 +1,8 @@
 server:
   port: 8080
+  # TLS terminates at our nginx (#33); keep forward-headers-strategy so Spring honours
+  # X-Forwarded-Proto and builds https OAuth redirect URIs. App-SSL/keystore removed (#32).
   forward-headers-strategy: native
-  ssl:
-    key-store: keystore.p12
-    key-store-password: ${KEY_STORE_PASSWORD}
-    keyStoreType: PKCS12
-    keyAlias: titlecounter
 spring:
   application:
     name: team-selection
@@ -28,11 +25,11 @@ spring:
         enable_lazy_load_no_trans: true
     database-platform: org.hibernate.dialect.PostgreSQLDialect
 frontend:
-  url: https://titlecounter.ru:5173
+  url: https://teams.pd-mmcs.ru
   login:
-    url: https://titlecounter.ru:5173/login
+    url: https://teams.pd-mmcs.ru/login
 cors:
-  allowed-origins: https://titlecounter.ru:8080
+  allowed-origins: https://teams.pd-mmcs.ru
 
 logging:
   level:
