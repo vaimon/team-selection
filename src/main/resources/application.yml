@@ -45,7 +45,11 @@ spring:
               - email
               - profile
               - User.Read
-              - User.ReadBasic.All
+              # User.ReadBasic.All dropped (#23): it needs tenant admin consent (blocks every login
+              # with a consent wall) and is used ONLY by PhotoService to read others' Graph photos.
+              # Login matches on the id-token email claim, not Graph. Photo endpoint 403s -> falls
+              # back to the placeholder (UserController.getPhoto try/catch). Re-add + get admin
+              # consent if avatars are wanted.
 #  cloud:
 #    azure:
 #      active-directory:
