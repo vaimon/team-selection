@@ -11,11 +11,13 @@ public final class StudentSpecification {
     private StudentSpecification() {}
 
     public static Specification<Student> like(String text) {
-        return (root, query, criteriaBuilder) ->
-             criteriaBuilder.like(
-                    criteriaBuilder.lower(root.get("user").get("fio")),
-                    ("%" + text + "%").toLowerCase(Locale.ROOT)
+        return (root, query, criteriaBuilder) -> {
+            String pattern = ("%" + text.trim() + "%").toLowerCase(Locale.ROOT);
+            return criteriaBuilder.or(
+                    criteriaBuilder.like(criteriaBuilder.lower(root.get("user").get("fio")), pattern),
+                    criteriaBuilder.like(criteriaBuilder.lower(root.get("aboutSelf")), pattern)
             );
+        };
     }
 
 
@@ -77,6 +79,7 @@ public final class StudentSpecification {
             if (technologies == null || technologies.isEmpty()) {
                 return criteriaBuilder.conjunction(); // do not filter if list is empty
             }
+            query.distinct(true);
             return root.join("technologies")
                     .get("id")
                     .in(technologies);

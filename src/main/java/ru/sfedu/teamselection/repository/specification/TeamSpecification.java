@@ -17,11 +17,13 @@ public final class TeamSpecification {
     private TeamSpecification() {}
 
     public static Specification<Team> like(String text) {
-        return (root, query, criteriaBuilder) ->
-                criteriaBuilder.like(
-                        criteriaBuilder.lower(root.get("name")),
-                        ("%" + text + "%").toLowerCase(Locale.ROOT)
-                );
+        return (root, query, criteriaBuilder) -> {
+            String pattern = ("%" + text.trim() + "%").toLowerCase(Locale.ROOT);
+            return criteriaBuilder.or(
+                    criteriaBuilder.like(criteriaBuilder.lower(root.get("name")), pattern),
+                    criteriaBuilder.like(criteriaBuilder.lower(root.get("projectDescription")), pattern)
+            );
+        };
     }
 
     public static Specification<Team> byTrack(Long trackId) {
@@ -47,6 +49,7 @@ public final class TeamSpecification {
             if (technologies == null || technologies.isEmpty()) {
                 return cb.conjunction();
             }
+            cq.distinct(true);
             Join<Team, Technology> join = root.join("technologies", JoinType.LEFT);
             return join.get("id").in(technologies);
         };
