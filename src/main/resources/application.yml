@@ -92,6 +92,11 @@ frontend:
   login:
     url: http://localhost:5173/login
 
+# Ключ server-to-server интеграции. Пустое значение = интеграционные ручки
+# отвечают 401 всем: ненастроенный секрет не означает «ключ не нужен».
+integration:
+  api-key: ${INTEGRATION_API_KEY:}
+
 # /oauth2/authorization/github
 logging:
   file:
