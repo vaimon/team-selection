@@ -32,6 +32,7 @@ import ru.sfedu.teamselection.service.TeamService;
 import ru.sfedu.teamselection.service.UserService;
 import ru.sfedu.teamselection.service.audit.AuditService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
+import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -49,7 +50,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 public class TeamControllerTest {
     @MockitoBean
     private TeamExportService teamExportService;
-    @MockitoBean
+    @MockitoBean(name = "teamService")
     private TeamService teamService;
     @MockitoBean
     private ApplicationService applicationService;
@@ -64,6 +65,8 @@ public class TeamControllerTest {
     private Oauth2UserService oauth2UserService;
     @MockitoBean
     private AzureOidcUserService azureOidcUserService;
+    @MockitoBean
+    private CurrentAuthoritiesResolver currentAuthoritiesResolver;
 
     @MockitoBean
     private TeamDtoMapper teamDtoMapper;
@@ -84,13 +87,22 @@ public class TeamControllerTest {
             .role(Role.builder().id(3L).name("ROLE_ADMIN").build())
             .build();
 
+    // signed in, but no questionnaire for the current selection yet
+    private final User studentWithoutQuestionnaire = User.builder()
+            .id(5L)
+            .fio("New Comer")
+            .email("new@sfedu.ru")
+            .isEnabled(true)
+            .role(Role.builder().id(4L).name("ROLE_STUDENT").build())
+            .build();
+
     private final User genericStudentUser = User.builder()
             .id(2L)
             .fio("A B C")
             .email("example@.com")
             .isEnabled(true)
             .isRemindEnabled(true)
-            .role(Role.builder().id(1L).name("ROLE_STUDENT").build())
+            .role(Role.builder().id(1L).name("ROLE_PARTICIPANT").build()) // filled the questionnaire
             .build();
 
     private final Student genericStudent = Student.builder()
@@ -136,7 +148,7 @@ public class TeamControllerTest {
 
         mockMvc.perform(get(TeamController.FIND_ALL)
                         .with(SecurityMockMvcRequestPostProcessors.csrf())
-                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin)))
                 .andExpect(status().isOk());
     }
 
@@ -207,6 +219,7 @@ public class TeamControllerTest {
 
     @Test
     public void findApplicantsById() throws Exception {
+        Mockito.doReturn(true).when(teamService).isCurrentUserCaptain(Mockito.anyLong());
 
         mockMvc.perform(get(TeamController.FIND_APPLICANTS_BY_ID, "1")
                         .with(SecurityMockMvcRequestPostProcessors.csrf())
@@ -336,5 +349,51 @@ public class TeamControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest())
                 .andDo(print());
+    }
+
+    // access matrix, vaimon/team-selection#7
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "/api/v1/teams/1", "/api/v1/teams/search", "/api/v1/teams/filters"
+    })
+    public void studentWithoutQuestionnaireCannotReadTeams(String url) throws Exception {
+        mockMvc.perform(get(url)
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(studentWithoutQuestionnaire)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void studentWithoutQuestionnaireCannotCreateTeam() throws Exception {
+        mockMvc.perform(post(TeamController.CREATE_TEAM)
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(studentWithoutQuestionnaire))
+                        .content("{\"name\": \"x\", \"captain_id\": 5}")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+
+        Mockito.verify(teamService, Mockito.never()).create(Mockito.any(), Mockito.any());
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "/api/v1/teams", "/api/v1/teams/export/csv?trackId=1", "/api/v1/teams/export/excel?trackId=1"
+    })
+    public void participantCannotListAllTeamsOrExport(String url) throws Exception {
+        mockMvc.perform(get(url)
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void onlyTeamLeadOrAdminSeesApplicants() throws Exception {
+        Mockito.doReturn(false).when(teamService).isCurrentUserCaptain(1L);
+
+        mockMvc.perform(get(TeamController.FIND_APPLICANTS_BY_ID.replace("{id}", "1"))
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get(TeamController.FIND_APPLICANTS_BY_ID.replace("{id}", "1"))
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin)))
+                .andExpect(status().isOk());
     }
 }

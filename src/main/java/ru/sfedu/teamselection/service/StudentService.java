@@ -17,11 +17,14 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.domain.User;
+import ru.sfedu.teamselection.dto.TechnologyDto;
 import ru.sfedu.teamselection.dto.StudentUpdateDto;
 import ru.sfedu.teamselection.dto.student.StudentCreationDto;
 import ru.sfedu.teamselection.dto.student.StudentDto;
 import ru.sfedu.teamselection.dto.student.StudentSearchOptionsDto;
 import ru.sfedu.teamselection.enums.TrackType;
+import ru.sfedu.teamselection.exception.BusinessException;
+import ru.sfedu.teamselection.exception.ForbiddenException;
 import ru.sfedu.teamselection.exception.NotFoundException;
 import ru.sfedu.teamselection.mapper.TechnologyMapper;
 import ru.sfedu.teamselection.mapper.student.StudentCreationDtoMapper;
@@ -140,20 +143,30 @@ public class StudentService {
      * Registers the user for the current selection. The students row is lifetime (one per user), so a student
      * returning for a new selection gets their row updated and moved to it, without last year's team.
      * @param dto DTO containing student data; its track id is ignored
+     * @param sender the caller; the questionnaire can only be filled for oneself
      * @return created or updated student
      */
     @Transactional
-    public Student create(StudentCreationDto dto) {
+    public Student create(StudentCreationDto dto, User sender) {
+        if (!Objects.equals(dto.getUserId(), sender.getId())) {
+            throw new ForbiddenException("Анкету участника можно заполнить только за себя");
+        }
         User user = userService.findByIdOrElseThrow(dto.getUserId());
+        if ("ADMIN".equals(user.getRole().getName())) {
+            // registering would silently replace the ADMIN role with STUDENT
+            throw new BusinessException("Администратор не участвует в отборе, анкета участника не нужна");
+        }
         var role = roleRepository.findByName("STUDENT")
                 .orElseThrow(() -> new NotFoundException("Роль STUDENT не найдена"));
         user.setRole(role);
         Track active = trackService.getActive();
+        List<Long> technologyIds = dto.getTechnologies().stream().map(TechnologyDto::getId).toList();
 
         if (!studentRepository.existsByUserId(user.getId())) {
             Student student = studentCreationDtoMapper.mapToEntity(dto);
             student.setUser(user);
             student.setCurrentTrack(active);
+            student.setTechnologies(technologyRepository.findAllByIdIn(technologyIds));
             return studentRepository.save(student);
         }
 
@@ -162,6 +175,7 @@ public class StudentService {
         student.setGroupNumber(dto.getGroupNumber());
         student.setAboutSelf(dto.getAboutSelf());
         student.setContacts(dto.getContacts());
+        student.setTechnologies(technologyRepository.findAllByIdIn(technologyIds));
         if (student.getCurrentTrack() == null || !Objects.equals(student.getCurrentTrack().getId(), active.getId())) {
             // the old team stays in its read-only selection; membership history is kept in teams_students
             student.setHasTeam(false);

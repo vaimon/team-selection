@@ -30,6 +30,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import ru.sfedu.teamselection.config.security.Access;
 import ru.sfedu.teamselection.config.logging.Auditable;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.PageResponse;
@@ -78,6 +79,7 @@ public class StudentController {
     private final StudentExportService studentExportService;
 
     @Operation(summary = "Список свободных и уже в команде студентов")
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(GET_AVAILABLE_STUDENTS)
     @Auditable(auditPoint = "Student.GetAvailableForTeam")
     public ResponseEntity<List<StudentDto>> getAvailableForTeam(
@@ -93,6 +95,7 @@ public class StudentController {
             method = "GET",
             summary = "Получение списка возможных опций для поиска среди студентов"
     )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(GET_SEARCH_OPTIONS)
     @Auditable(auditPoint = "Student.GetSearchOptions")
     public ResponseEntity<StudentSearchOptionsDto> getSearchOptionsStudents(
@@ -107,6 +110,7 @@ public class StudentController {
      * Экспорт студентов в CSV по заданному треку.
      */
     @Operation(method = "GET", summary = "Экспорт студентов в CSV по trackId")
+    @PreAuthorize(Access.ADMIN)
     @GetMapping(value = "/api/v1/students/export/csv", produces = "text/csv")
     @Auditable(auditPoint = "Student.ExportCsvByTrack.Csv")
     public ResponseEntity<byte[]> exportCsvByTrack(
@@ -123,6 +127,7 @@ public class StudentController {
      * Экспорт студентов в Excel по заданному треку.
      */
     @Operation(method = "GET", summary = "Экспорт студентов в Excel по trackId")
+    @PreAuthorize(Access.ADMIN)
     @GetMapping(
             value = "/api/v1/students/export/excel",
             produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -154,6 +159,7 @@ public class StudentController {
                 @Parameter(name = "size", description = "Размер страницы", example = "10", in = ParameterIn.QUERY),
                 @Parameter(name = "sort", description = "Сортировка (field,asc|desc)", example = "name,asc", in = ParameterIn.QUERY)
             })
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(SEARCH_STUDENTS)
     @Auditable(auditPoint = "Student.Search")
     public ResponseEntity<PageResponse<StudentDto>> searchStudents(
@@ -193,6 +199,7 @@ public class StudentController {
             summary = "Получение списка всех студентов за все время"
     )
     @Auditable(auditPoint = "Student.FindAll")
+    @PreAuthorize(Access.ADMIN)
     @GetMapping(FIND_ALL) // checked
     public ResponseEntity<List<StudentDto>> findAllStudents() {
         List<StudentDto> result = studentService.findAll().stream().map(studentDtoMapper::mapToDto).toList();
@@ -207,8 +214,8 @@ public class StudentController {
             ))
     @PostMapping(CREATE_STUDENT) // checked
     @Auditable(auditPoint = "Student.Create")
-    public ResponseEntity<StudentDto> createStudent(@RequestBody StudentCreationDto student) {
-        StudentDto result = studentDtoMapper.mapToDto(studentService.create(student));
+    public ResponseEntity<StudentDto> createStudent(@RequestBody @Valid StudentCreationDto student) {
+        StudentDto result = studentDtoMapper.mapToDto(studentService.create(student, userService.getCurrentUser()));
         return ResponseEntity.ok(result);
     }
 
@@ -219,6 +226,7 @@ public class StudentController {
                     @Parameter(name = "id", description = "Id студента", in = ParameterIn.PATH),
             }
     )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(FIND_BY_ID) // checked
     @Auditable(auditPoint = "Student.FindById")
     public ResponseEntity<StudentDto> findStudentById(@PathVariable(name = "id") Long studentId) {
@@ -258,6 +266,7 @@ public class StudentController {
                     @Parameter(name = "id", description = "Id студента", in = ParameterIn.PATH),
             }
     )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(FIND_TEAM_HISTORY)
     @Auditable(auditPoint = "Student.GetTeamHistory")
     public ResponseEntity<List<TeamDto>> getTeamHistory(@PathVariable(value = "id") Long studentId) {

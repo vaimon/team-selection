@@ -14,8 +14,10 @@ import org.springframework.security.web.authentication.SimpleUrlAuthenticationSu
 import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.WebUtils;
-import ru.sfedu.teamselection.domain.User;
-import ru.sfedu.teamselection.service.UserService;
+import java.util.Set;
+import java.util.stream.Collectors;
+import org.springframework.security.core.GrantedAuthority;
+import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 
 @Component
 @RequiredArgsConstructor
@@ -26,7 +28,7 @@ public class SimpleAuthenticationSuccessHandler extends SimpleUrlAuthenticationS
     @Value("${frontend.url}")
     private String frontendUrl;
 
-    private final UserService userService;
+    private final CurrentAuthoritiesResolver currentAuthoritiesResolver;
 
     @SuppressWarnings("checkstyle:MagicNumber")
     @Override
@@ -37,11 +39,6 @@ public class SimpleAuthenticationSuccessHandler extends SimpleUrlAuthenticationS
         //var oAuth2User = (OAuth2User) authentication.getPrincipal();
         OAuth2User oidcUser = (OAuth2User) authentication.getPrincipal();
         String email = oidcUser.getAttribute("email");  // или preferred_username
-
-        // подгружаем из БД
-        User user = userService.findByEmail(email);
-
-
 
         String sessionId = ((WebAuthenticationDetails) authentication.getDetails()).getSessionId();
 
@@ -62,19 +59,21 @@ public class SimpleAuthenticationSuccessHandler extends SimpleUrlAuthenticationS
             response.addCookie(jSessionIdCookie);
         }
 
-        //User user;
-        //if (oAuth2User instanceof OidcUserImpl oidcUser) {
-            //user = oidcUser.getUser();
-        //} else {
-            //user = (User) oAuth2User;
-        //}
-
-        if (user.getRole().getName().contains("STUDENT")) {
-            redirectStrategy.sendRedirect(request, response, frontendUrl + "/teams");
-        } else {
-            redirectStrategy.sendRedirect(request, response, frontendUrl + "/registration");
-        }
+        redirectStrategy.sendRedirect(request, response, frontendUrl + targetPath(email));
     }
 
 
+    /**
+     * Admins land in the admin area, participants of the current selection in the catalog, everyone else on
+     * the participant questionnaire.
+     */
+    String targetPath(String email) {
+        Set<String> roles = currentAuthoritiesResolver.resolve(email).orElse(Set.of()).stream()
+                .map(GrantedAuthority::getAuthority)
+                .collect(Collectors.toSet());
+        if (roles.contains("ROLE_ADMIN")) {
+            return "/admin";
+        }
+        return roles.contains(CurrentAuthoritiesResolver.PARTICIPANT) ? "/teams" : "/registration";
+    }
 }

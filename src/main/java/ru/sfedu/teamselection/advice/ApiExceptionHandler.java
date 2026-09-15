@@ -4,10 +4,12 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.ConstraintDeclarationException;
 import java.time.OffsetDateTime;
 import java.util.NoSuchElementException;
+import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import ru.sfedu.teamselection.dto.ErrorResponse;
@@ -39,10 +41,26 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(value = { ForbiddenException.class, AccessDeniedException.class })
     public ResponseEntity<ErrorResponse> handleAccessDeniedRequest(
-            AccessDeniedException ex, HttpServletRequest req
+            RuntimeException ex, HttpServletRequest req
     ) {
         log.error(ex.getMessage());
         return buildResponse(HttpStatus.FORBIDDEN, ex, req);
+    }
+
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    public ResponseEntity<ErrorResponse> handleInvalidBody(
+            MethodArgumentNotValidException ex, HttpServletRequest req
+    ) {
+        String message = ex.getBindingResult().getFieldErrors().stream()
+                .map(error -> error.getField() + ": " + error.getDefaultMessage())
+                .collect(Collectors.joining("; "));
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(ErrorResponse.builder()
+                .timestamp(OffsetDateTime.now().toString())
+                .status(HttpStatus.BAD_REQUEST.value())
+                .error(HttpStatus.BAD_REQUEST.getReasonPhrase())
+                .message(message)
+                .path(req.getRequestURI())
+                .build());
     }
 
     @ExceptionHandler(Exception.class)

@@ -19,6 +19,8 @@ public interface StudentRepository extends JpaRepository<Student, Long>, JpaSpec
 
     boolean existsByUserId(Long userId);
 
+    boolean existsByUserIdAndCurrentTrackActiveTrue(Long userId);
+
     @Modifying(clearAutomatically = true)
     @Query("""
         UPDATE Student s

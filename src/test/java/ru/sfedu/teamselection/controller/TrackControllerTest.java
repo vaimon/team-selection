@@ -25,6 +25,7 @@ import ru.sfedu.teamselection.mapper.track.TrackDtoMapper;
 import ru.sfedu.teamselection.service.TrackService;
 import ru.sfedu.teamselection.service.audit.AuditService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
+import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -47,6 +48,8 @@ public class TrackControllerTest {
     private Oauth2UserService oauth2UserService;
     @MockitoBean
     private AzureOidcUserService azureOidcUserService;
+    @MockitoBean
+    private CurrentAuthoritiesResolver currentAuthoritiesResolver;
 
     @MockitoBean
     private AuditService auditService;
@@ -68,13 +71,22 @@ public class TrackControllerTest {
             .role(Role.builder().id(3L).name("ROLE_ADMIN").build())
             .build();
 
+    // signed in, but no questionnaire for the current selection yet
+    private final User studentWithoutQuestionnaire = User.builder()
+            .id(5L)
+            .fio("New Comer")
+            .email("new@sfedu.ru")
+            .isEnabled(true)
+            .role(Role.builder().id(4L).name("ROLE_STUDENT").build())
+            .build();
+
     private final User genericStudentUser = User.builder()
             .id(2L)
             .fio("A B C")
             .email("example@.com")
             .isEnabled(true)
             .isRemindEnabled(true)
-            .role(Role.builder().id(1L).name("ROLE_STUDENT").build())
+            .role(Role.builder().id(1L).name("ROLE_PARTICIPANT").build()) // filled the questionnaire
             .build();
 
     private final List<Track> trackList = List.of(
@@ -297,5 +309,23 @@ public class TrackControllerTest {
                 .andExpect(status().isForbidden());
 
         Mockito.verify(trackService, Mockito.never()).startNewSelection(Mockito.any());
+    }
+
+    // access matrix, vaimon/team-selection#7
+
+    @Test
+    public void studentWithoutQuestionnaireSeesTheCurrentSelectionButNotTrackRosters() throws Exception {
+        Track active = Track.builder().id(7L).name("Отбор 2026").active(true).build();
+        Mockito.doReturn(active).when(trackService).getActive();
+
+        mockMvc.perform(get("/api/v1/tracks/current")
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(studentWithoutQuestionnaire)))
+                .andExpect(status().isOk());
+        mockMvc.perform(get("/api/v1/tracks")
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(studentWithoutQuestionnaire)))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(get("/api/v1/tracks/7")
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(studentWithoutQuestionnaire)))
+                .andExpect(status().isForbidden());
     }
 }

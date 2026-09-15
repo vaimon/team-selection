@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import ru.sfedu.teamselection.config.security.Access;
 import ru.sfedu.teamselection.config.logging.Auditable;
 import ru.sfedu.teamselection.domain.Team;
 import ru.sfedu.teamselection.domain.User;
@@ -83,6 +84,7 @@ public class TeamController {
             method = "GET",
             summary = "Получение списка возможных опций для поиска среди команд заданного трека"
     )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(GET_SEARCH_OPTIONS)
     @Auditable(auditPoint = "Team.GetSearchOptionsTeams")
     public ResponseEntity<TeamSearchOptionsDto> getSearchOptionsTeams(
@@ -96,6 +98,7 @@ public class TeamController {
             method = "GET",
             summary = "Получение списка всех команд за все время"
     )
+    @PreAuthorize(Access.ADMIN)
     @GetMapping(FIND_ALL) // checked
     @Auditable(auditPoint = "Team.FindAll")
     public ResponseEntity<List<TeamDto>> findAll() {
@@ -118,6 +121,7 @@ public class TeamController {
                     @Parameter(name = "size", description = "Размер страницы", example = "10", in = ParameterIn.QUERY),
                     @Parameter(name = "sort", description = "Сортировка (field,asc|desc)", example = "name,asc", in = ParameterIn.QUERY)
             })
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(SEARCH_TEAMS)
     @Auditable(auditPoint = "Team.Search")
     public ResponseEntity<PageResponse<TeamDto>> search(
@@ -165,6 +169,7 @@ public class TeamController {
                     @Parameter(name = "id", description = "id команды", in = ParameterIn.PATH),
             }
     )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(FIND_BY_ID) // checked
     @Auditable(auditPoint = "Team.FindById")
     public ResponseEntity<TeamDto> findById(@PathVariable(name = "id") Long teamId) {
@@ -179,6 +184,7 @@ public class TeamController {
             parameters = {
                     @Parameter(name = "id", description = "id команды", in = ParameterIn.PATH),
             })
+    @PreAuthorize("hasRole('ADMIN') or @teamService.isCurrentUserCaptain(#teamId)")
     @GetMapping(FIND_APPLICANTS_BY_ID)
     @Auditable(auditPoint = "Team.FindApplicantsById")
     public ResponseEntity<List<StudentDto>> findApplicantsById(@PathVariable(value = "id") Long teamId) {
@@ -190,6 +196,7 @@ public class TeamController {
         return ResponseEntity.ok(result);
     }
 
+    @PreAuthorize(Access.ADMIN)
     @GetMapping(value = "/api/v1/teams/export/csv", produces = "text/csv")
     @Auditable(auditPoint = "Team.ExportTeamsCsv")
     public ResponseEntity<byte[]> exportTeamsCsv(
@@ -203,6 +210,7 @@ public class TeamController {
                 .body(data);
     }
 
+    @PreAuthorize(Access.ADMIN)
     @GetMapping(value = "/api/v1/teams/export/excel", produces =
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
     @Auditable(auditPoint = "Team.ExportTeamsExcel")
@@ -225,6 +233,7 @@ public class TeamController {
                     description = "Сущность команды"
             )
     )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @PostMapping(CREATE_TEAM)
     @Auditable(auditPoint = "Team.CreateTeam")
     public ResponseEntity<TeamDto> createTeam(@RequestBody TeamCreationDto team) {
@@ -283,6 +292,7 @@ public class TeamController {
             requestBody = @io.swagger.v3.oas.annotations.parameters.RequestBody(
                     description = "Сущность команды"
             ))
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @PutMapping(UPDATE_TEAM)
     @Auditable(auditPoint = "Team.UpdateTeam")
     public ResponseEntity<TeamDto> updateTeam(

@@ -336,6 +336,16 @@ public class TeamService {
         return trackId != null ? trackId : trackService.getActive().getId();
     }
 
+    /**
+     * Used by access checks: the caller is the team lead of this team.
+     */
+    @Transactional(readOnly = true)
+    public boolean isCurrentUserCaptain(Long teamId) {
+        Team team = findByIdOrElseThrow(teamId);
+        Long currentStudentId = studentService.getCurrentStudent();
+        return currentStudentId != null && currentStudentId.equals(team.getCaptainId());
+    }
+
     public static String noPlacesMessage(Integer course) {
         return TeamComposition.isFirstYear(course)
                 ? "В команде нет мест для студентов 1 курса"
