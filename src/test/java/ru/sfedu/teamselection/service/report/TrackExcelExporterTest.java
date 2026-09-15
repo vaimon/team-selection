@@ -94,16 +94,14 @@ public class TrackExcelExporterTest {
         track.setStartDate(LocalDate.of(2024, 9, 1));
         track.setEndDate(LocalDate.of(2025, 5, 31));
         track.setType(TrackType.bachelor);
-        track.setMinConstraint(3);
-        track.setMaxConstraint(5);
-        track.setMaxSecondCourseConstraint(2);
+        track.setFirstYearTarget(3);
+        track.setSecondYearTarget(3);
 
         Team team = new Team();
         team.setName("Team 1");
+        team.setCurrentTrack(track);
         team.setProjectDescription("Project Desc");
         team.setProjectType(new ProjectType(1L, "Web"));
-        team.setQuantityOfStudents(1);
-        team.setIsFull(false);
         team.setTechnologies(
                 List.of(
                         Technology.builder().id(1L).name("Java").build(),

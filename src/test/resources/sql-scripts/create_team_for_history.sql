@@ -1,10 +1,10 @@
 INSERT
 INTO
   teams
-  (id, captain_id, is_full, name, project_description, project_type_id, quantity_of_students, current_track_id, created_at, updated_at)
+  (id, captain_id, name, project_description, project_type_id, current_track_id, created_at, updated_at)
 VALUES
-    (1003, 1, false, 'Almost full', 'мобильное приложение', 1, 6, 1, '2024-11-21 20:24:36.402366', '2024-11-21 20:24:36.402366'),
-    (1004, 2, true, 'Old name xQc', 'мобильное приложение', 1, 7, 1, '2024-11-21 20:24:36.402366', '2024-11-21 20:24:36.402366')
+    (1003, 1, 'Almost full', 'мобильное приложение', 1, 1, '2024-11-21 20:24:36.402366', '2024-11-21 20:24:36.402366'),
+    (1004, 2, 'Old name xQc', 'мобильное приложение', 1, 1, '2024-11-21 20:24:36.402366', '2024-11-21 20:24:36.402366')
 ON CONFLICT DO NOTHING;
 
 INSERT

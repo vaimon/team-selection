@@ -96,9 +96,10 @@ public class StudentController {
     @GetMapping(GET_SEARCH_OPTIONS)
     @Auditable(auditPoint = "Student.GetSearchOptions")
     public ResponseEntity<StudentSearchOptionsDto> getSearchOptionsStudents(
-            @RequestParam(value = "track_id") String trackId
+            @RequestParam(value = "track_id", required = false) Long trackId
     ) {
-        StudentSearchOptionsDto result = studentService.getSearchOptionsStudents(Long.valueOf(trackId));
+        StudentSearchOptionsDto result =
+                studentService.getSearchOptionsStudents(studentService.resolveTrackId(trackId));
         return ResponseEntity.ok(result);
     }
 
@@ -175,7 +176,7 @@ public class StudentController {
 
         Page<StudentDto> result = studentService.search(
                         input,
-                        trackId,
+                        studentService.resolveTrackId(trackId),
                         course,
                         groupNumber,
                         hasTeam,

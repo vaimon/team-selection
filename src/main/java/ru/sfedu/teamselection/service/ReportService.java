@@ -11,6 +11,7 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Team;
+import ru.sfedu.teamselection.domain.TeamComposition;
 import ru.sfedu.teamselection.domain.Technology;
 import ru.sfedu.teamselection.domain.Track;
 
@@ -30,9 +31,8 @@ public class ReportService {
         firstRow.createCell(2).setCellValue(track.getStartDate().format(dtf));
         firstRow.createCell(3).setCellValue(track.getEndDate().format(dtf));
         firstRow.createCell(4).setCellValue(track.getType().toString());
-        firstRow.createCell(5).setCellValue(String.valueOf(track.getMinConstraint()));
-        firstRow.createCell(6).setCellValue(String.valueOf(track.getMaxConstraint()));
-        firstRow.createCell(7).setCellValue(String.valueOf(track.getMaxSecondCourseConstraint()));
+        firstRow.createCell(5).setCellValue(String.valueOf(track.getFirstYearTarget()));
+        firstRow.createCell(6).setCellValue(String.valueOf(track.getSecondYearTarget()));
 
         int rowIndex = 2;
         for (Team team : track.getCurrentTeams()) {
@@ -42,8 +42,8 @@ public class ReportService {
             rowTeam.createCell(0).setCellValue(team.getName());
             rowTeam.createCell(1).setCellValue(team.getProjectDescription());
             rowTeam.createCell(2).setCellValue(team.getProjectType().getName());
-            rowTeam.createCell(3).setCellValue(String.valueOf(team.getQuantityOfStudents()));
-            rowTeam.createCell(4).setCellValue(String.valueOf(team.getIsFull()));
+            rowTeam.createCell(3).setCellValue(String.valueOf(team.getStudents().size()));
+            rowTeam.createCell(4).setCellValue(String.valueOf(TeamComposition.of(team).complete()));
             rowTeam.createCell(5).setCellValue(
                     team.getTechnologies()
                             .stream()
@@ -112,7 +112,7 @@ public class ReportService {
         row.getCell(2).setCellStyle(style);
         row.createCell(3).setCellValue("Количество студентов");
         row.getCell(3).setCellStyle(style);
-        row.createCell(4).setCellValue("Заполненность команды");
+        row.createCell(4).setCellValue("Команда собрана");
         row.getCell(4).setCellStyle(style);
         row.createCell(5).setCellValue("Тэги");
         row.getCell(5).setCellStyle(style);
@@ -140,12 +140,10 @@ public class ReportService {
         header.getCell(3).setCellStyle(style);
         header.createCell(4).setCellValue("Тип трека");
         header.getCell(4).setCellStyle(style);
-        header.createCell(5).setCellValue("Минимум человек в команде");
+        header.createCell(5).setCellValue("Цель: студентов 1 курса");
         header.getCell(5).setCellStyle(style);
-        header.createCell(6).setCellValue("Максимум человек в команде");
+        header.createCell(6).setCellValue("Цель: студентов 2 курса и старше");
         header.getCell(6).setCellStyle(style);
-        header.createCell(7).setCellValue("Максимум студентов 2 курса (для бакалавров)");
-        header.getCell(7).setCellStyle(style);
 
         return report;
     }

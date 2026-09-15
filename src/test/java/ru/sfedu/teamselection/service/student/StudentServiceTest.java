@@ -27,6 +27,7 @@ import ru.sfedu.teamselection.BasicTestContainerTest;
 import ru.sfedu.teamselection.TeamSelectionApplication;
 import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Team;
+import ru.sfedu.teamselection.domain.TeamComposition;
 import ru.sfedu.teamselection.domain.Technology;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.StudentUpdateDto;
@@ -41,6 +42,9 @@ import ru.sfedu.teamselection.repository.StudentRepository;
 import ru.sfedu.teamselection.repository.TeamRepository;
 import ru.sfedu.teamselection.repository.TechnologyRepository;
 import ru.sfedu.teamselection.service.StudentService;
+import ru.sfedu.teamselection.service.TrackService;
+import ru.sfedu.teamselection.dto.track.NewSelectionDto;
+import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.service.UserService;
 import ru.sfedu.teamselection.service.security.PermissionLevelUpdate;
 
@@ -53,6 +57,9 @@ class StudentServiceTest extends BasicTestContainerTest {
     private StudentService underTest;
     @Autowired
     private UserService userService;
+
+    @Autowired
+    private TrackService trackService;
 
     @Autowired
     private TeamRepository teamRepository;
@@ -116,6 +123,50 @@ class StudentServiceTest extends BasicTestContainerTest {
 
     @Test
     @Transactional
+    void createJoinsTheCurrentSelectionWhateverTrackIsSent() {
+        Student actual = underTest.create(StudentCreationDto.builder()
+                .course(1).groupNumber(1).contacts("tg").userId(21L).trackId(2L)
+                .build());
+
+        Assertions.assertEquals(trackService.getActive().getId(), actual.getCurrentTrack().getId());
+    }
+
+    @Test
+    @Transactional
+    void createForReturningStudentMovesThemToTheNewSelectionWithoutTheirOldTeam() {
+        Track previous = trackService.getActive();
+        Track next = trackService.startNewSelection(NewSelectionDto.builder().name("Отбор следующего года").build());
+
+        Student actual = underTest.create(StudentCreationDto.builder()
+                .course(2).groupNumber(3).contacts("tg @returning").userId(3L)
+                .build());
+
+        Assertions.assertFalse(actual.getTeams().isEmpty(), "the lifetime students row is reused");
+        Assertions.assertEquals(next.getId(), actual.getCurrentTrack().getId());
+        Assertions.assertEquals(2, actual.getCourse());
+        Assertions.assertFalse(actual.getHasTeam());
+        Assertions.assertFalse(actual.getIsCaptain());
+        Assertions.assertNull(actual.getCurrentTeam());
+        Team oldTeam = teamRepository.findById(1L).orElseThrow();
+        Assertions.assertEquals(previous.getId(), oldTeam.getCurrentTrack().getId());
+        Assertions.assertTrue(oldTeam.getStudents().stream().anyMatch(s -> s.getUser().getId().equals(3L)));
+    }
+
+    @Test
+    @Transactional
+    void createAgainInTheSameSelectionOnlyUpdatesTheQuestionnaire() {
+        Student actual = underTest.create(StudentCreationDto.builder()
+                .course(1).groupNumber(7).contacts("tg @updated").userId(3L)
+                .build());
+
+        Assertions.assertFalse(actual.getTeams().isEmpty(), "the lifetime students row is reused");
+        Assertions.assertEquals("tg @updated", actual.getContacts());
+        Assertions.assertTrue(actual.getHasTeam());
+        Assertions.assertEquals(1L, actual.getCurrentTeam().getId());
+    }
+
+    @Test
+    @Transactional
     void create() {
         StudentCreationDto studentDto = StudentCreationDto.builder()
                 .aboutSelf("about self")
@@ -143,22 +194,21 @@ class StudentServiceTest extends BasicTestContainerTest {
     @Test
     @Transactional
     void deleteStudentWithTeam() {
-        Student deleteStudent = studentRepository.findById(8L).orElseThrow();
+        Student deleteStudent = studentRepository.findById(12L).orElseThrow();
 
         Team teamBeforeDelete = teamRepository.findById(deleteStudent.getCurrentTeam().getId()).orElseThrow();
 
-        underTest.delete(8L);
+        underTest.delete(12L);
         Team teamAfterDelete = teamRepository.findById(teamBeforeDelete.getId()).orElseThrow();
 
-        Assertions.assertEquals(4, teamAfterDelete.getQuantityOfStudents());
-        Assertions.assertEquals(false, teamAfterDelete.getIsFull());
-        Assertions.assertEquals(4, teamAfterDelete.getStudents().size());
+        Assertions.assertEquals(1, teamAfterDelete.getStudents().size());
+        Assertions.assertFalse(TeamComposition.of(teamAfterDelete).complete());
     }
 
     @Test
     @Transactional
     void deleteCaptainFromTeam() {
-        Assertions.assertThrows(ConstraintViolationException.class, () -> underTest.delete(3L));
+        Assertions.assertThrows(ConstraintViolationException.class, () -> underTest.delete(2L));
     }
 
     @Test

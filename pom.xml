@@ -270,6 +270,7 @@
                                 <importMapping>TeamDto=ru.sfedu.teamselection.dto.team.TeamDto</importMapping>
                                 <importMapping>TrackDto=ru.sfedu.teamselection.dto.track.TrackDto</importMapping>
                                 <importMapping>TrackCreationDto=ru.sfedu.teamselection.dto.track.TrackCreationDto</importMapping>
+                                <importMapping>NewSelectionDto=ru.sfedu.teamselection.dto.track.NewSelectionDto</importMapping>
                                 <importMapping>TeamSearchOptionsDto=ru.sfedu.teamselection.dto.team.TeamSearchOptionsDto</importMapping>
                                 <importMapping>ApplicationCreationDto=ru.sfedu.teamselection.dto.application.ApplicationCreationDto</importMapping>
                                 <importMapping>ApplicationDto=ru.sfedu.teamselection.dto.application.ApplicationDto</importMapping>

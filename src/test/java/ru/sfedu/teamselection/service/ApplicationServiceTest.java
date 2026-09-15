@@ -780,7 +780,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 .build();
 
         Assertions.assertThrows(
-                ConstraintViolationException.class,
+                BusinessException.class,
                 () -> underTest.update(dto, userRepository.findById(22L).orElseThrow())
         );
     }
@@ -808,7 +808,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 .type(ApplicationType.INVITE)
                 .build();
 
-        Assertions.assertThrows(ConstraintViolationException.class,
+        Assertions.assertThrows(BusinessException.class,
                 () -> underTest.update(dto, userRepository.findById(7L).orElseThrow())
         );
     }

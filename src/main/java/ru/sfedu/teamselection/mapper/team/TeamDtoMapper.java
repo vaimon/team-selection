@@ -8,7 +8,9 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Team;
+import ru.sfedu.teamselection.domain.TeamComposition;
 import ru.sfedu.teamselection.domain.Track;
+import ru.sfedu.teamselection.dto.team.TeamCompositionDto;
 import ru.sfedu.teamselection.dto.team.TeamDto;
 import ru.sfedu.teamselection.mapper.DtoMapper;
 import ru.sfedu.teamselection.mapper.ProjectTypeMapper;
@@ -39,9 +41,7 @@ public class TeamDtoMapper implements DtoMapper<TeamDto, Team> {
                 .name(dto.getName())
                 .projectDescription(dto.getProjectDescription())
                 .projectType(projectTypeDtoMapper.mapToEntity(dto.getProjectType()))
-                .quantityOfStudents(dto.getQuantityOfStudents())
                 .captainId(dto.getCaptain().getId())
-                .isFull(dto.getIsFull())
                 .technologies(technologyDtoMapper.mapListToEntity(dto.getTechnologies()))
                 .currentTrack(entityManager.getReference(Track.class, dto.getCurrentTrackId()))
                 .students(dto.getStudents().stream().map(studentDtoMapper::mapToEntity).toList())
@@ -57,6 +57,7 @@ public class TeamDtoMapper implements DtoMapper<TeamDto, Team> {
         if (entity == null) {
             return null;
         }
+        TeamComposition composition = TeamComposition.of(entity);
         var captain = entityManager.find(Student.class, entity.getCaptainId());
 
         return TeamDto.builder()
@@ -64,9 +65,10 @@ public class TeamDtoMapper implements DtoMapper<TeamDto, Team> {
                 .name(entity.getName())
                 .projectDescription(entity.getProjectDescription())
                 .projectType(projectTypeDtoMapper.mapToDto(entity.getProjectType()))
-                .quantityOfStudents(entity.getQuantityOfStudents())
+                .quantityOfStudents(composition.size())
                 .captain(studentDtoMapper.mapToDtoWithoutTeam(captain))
-                .isFull(entity.getIsFull())
+                .isFull(composition.complete())
+                .composition(TeamCompositionDto.of(composition))
                 .technologies(technologyDtoMapper.mapListToDto(entity.getTechnologies()))
                 .applications(entity.getApplications().stream().map(applicationMapper::mapToDto).toList())
                 .currentTrackId(entity.getCurrentTrack().getId())
@@ -78,13 +80,15 @@ public class TeamDtoMapper implements DtoMapper<TeamDto, Team> {
         if (entity == null) {
             return null;
         }
+        TeamComposition composition = TeamComposition.of(entity);
         return TeamDto.builder()
                 .id(entity.getId())
                 .name(entity.getName())
                 .projectDescription(entity.getProjectDescription())
                 .projectType(projectTypeDtoMapper.mapToDto(entity.getProjectType()))
-                .quantityOfStudents(entity.getQuantityOfStudents())
-                .isFull(entity.getIsFull())
+                .quantityOfStudents(composition.size())
+                .isFull(composition.complete())
+                .composition(TeamCompositionDto.of(composition))
                 .technologies(technologyDtoMapper.mapListToDto(entity.getTechnologies()))
                 .applications(entity.getApplications().stream().map(applicationMapper::mapToDto).toList())
                 .currentTrackId(entity.getCurrentTrack().getId())

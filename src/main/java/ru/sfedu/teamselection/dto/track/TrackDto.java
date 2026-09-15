@@ -22,9 +22,9 @@ public class TrackDto {
     private LocalDate startDate;
     private LocalDate endDate;
     private String type;
-    private Integer minConstraint;
-    private Integer maxConstraint;
-    private Integer maxSecondCourseConstraint;
+    private Integer firstYearTarget;
+    private Integer secondYearTarget;
+    private Boolean active;
     @Builder.Default
     private List<TeamDto> currentTeams = new ArrayList<>();
 }

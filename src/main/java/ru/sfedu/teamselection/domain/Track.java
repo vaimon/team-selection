@@ -53,16 +53,18 @@ public class Track {
     @Enumerated(EnumType.STRING)
     private TrackType type;
 
-    @Column(name = "min_constraint")
+    @Column(name = "first_year_target", nullable = false)
     @Builder.Default
-    private Integer minConstraint = 3;
+    private Integer firstYearTarget = 3;
 
-    @Column(name = "max_constraint")
+    @Column(name = "second_year_target", nullable = false)
     @Builder.Default
-    private Integer maxConstraint = 5;
+    private Integer secondYearTarget = 3;
 
-    @Column(name = "max_second_course_constraint")
-    private Integer maxSecondCourseConstraint;
+    // Exactly one track is the current selection; the others are read-only history.
+    @Column(name = "is_active", nullable = false)
+    @Builder.Default
+    private Boolean active = false;
 
     @OneToMany(mappedBy = "currentTrack", fetch = FetchType.LAZY)
     @Builder.Default

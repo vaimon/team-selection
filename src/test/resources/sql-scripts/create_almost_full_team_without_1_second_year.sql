@@ -9,7 +9,7 @@ INSERT INTO users (id, role_id, email, fio, is_enabled, is_locked, is_remind_ena
 
 INSERT INTO students (id, course, group_number, is_captain, has_team, about_self, contacts, current_team_id, user_id, current_track_id) VALUES (20, 1, 1, true, true, ' Опытный разработчик с глубокими знаниями в области Java и Python', 'vk', null, 22, 1);
 --TEAMS
-INSERT INTO teams (id, captain_id, is_full, name, project_description, quantity_of_students, current_track_id, created_at, updated_at, project_type_id) VALUES (5, 20, false, 'Matrix Minds', 'Наша команда создаст интеллектуальную систему мониторинга и аналитики, которая поможет владельцам онлайн-магазинов принимать обоснованные решения на основе данных.', 6, 1, '2024-11-20 18:28:15.047117', '2024-11-20 18:28:15.047117', 1);
+INSERT INTO teams (id, captain_id, name, project_description, current_track_id, created_at, updated_at, project_type_id) VALUES (5, 20, 'Matrix Minds', 'Наша команда создаст интеллектуальную систему мониторинга и аналитики, которая поможет владельцам онлайн-магазинов принимать обоснованные решения на основе данных.', 1, '2024-11-20 18:28:15.047117', '2024-11-20 18:28:15.047117', 1);
 
 --STUDENTS
 INSERT INTO students (id, course, group_number, is_captain, has_team, about_self, contacts, current_team_id, user_id, current_track_id) VALUES (25, 2, 1, false, true, 'Product Manager с опытом ведения проектов от идеи до запуска', 'tg', 5, 27, 1);

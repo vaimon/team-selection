@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.sfedu.teamselection.api.TrackApi;
 import ru.sfedu.teamselection.config.logging.Auditable;
+import ru.sfedu.teamselection.dto.track.NewSelectionDto;
 import ru.sfedu.teamselection.dto.track.TrackCreationDto;
 import ru.sfedu.teamselection.dto.track.TrackDto;
 import ru.sfedu.teamselection.mapper.track.TrackDtoMapper;
@@ -45,6 +46,19 @@ public class TrackController implements TrackApi {
         LOGGER.info("ENTER findById(%d) endpoint".formatted(trackId));
         TrackDto result = trackDtoMapper.mapToDto(trackService.findByIdOrElseThrow(trackId));
         return ResponseEntity.ok(result);
+    }
+
+    @Override
+    public ResponseEntity<TrackDto> findCurrentTrack() {
+        return ResponseEntity.ok(trackDtoMapper.mapToDtoWithoutTeams(trackService.getActive()));
+    }
+
+    @Override
+    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @Auditable(auditPoint = "Track.StartNewSelection")
+    public ResponseEntity<TrackDto> startNewSelection(@RequestBody NewSelectionDto dto) {
+        LOGGER.info("ENTER startNewSelection() endpoint");
+        return ResponseEntity.ok(trackDtoMapper.mapToDtoWithoutTeams(trackService.startNewSelection(dto)));
     }
 
     @Override

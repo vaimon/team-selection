@@ -27,10 +27,23 @@ public class TrackDtoMapper implements DtoMapper<TrackDto, Track> {
                 .startDate(dto.getStartDate())
                 .endDate(dto.getEndDate())
                 .type(TrackType.valueOf(dto.getType()))
-                .minConstraint(dto.getMinConstraint())
-                .maxConstraint(dto.getMaxConstraint())
-                .maxSecondCourseConstraint(dto.getMaxSecondCourseConstraint())
+                .firstYearTarget(dto.getFirstYearTarget())
+                .secondYearTarget(dto.getSecondYearTarget())
                 .currentTeams(dto.getCurrentTeams().stream().map(x->teamDtoMapper.mapToEntity(x)).toList())
+                .build();
+    }
+
+    public TrackDto mapToDtoWithoutTeams(Track entity) {
+        return TrackDto.builder()
+                .id(entity.getId())
+                .name(entity.getName())
+                .about(entity.getAbout())
+                .startDate(entity.getStartDate())
+                .endDate(entity.getEndDate())
+                .type(entity.getType() != null ? entity.getType().name() : null)
+                .firstYearTarget(entity.getFirstYearTarget())
+                .secondYearTarget(entity.getSecondYearTarget())
+                .active(entity.getActive())
                 .build();
     }
 
@@ -43,9 +56,9 @@ public class TrackDtoMapper implements DtoMapper<TrackDto, Track> {
                 .startDate(entity.getStartDate())
                 .endDate(entity.getEndDate())
                 .type(entity.getType() != null ? entity.getType().name() : null)
-                .minConstraint(entity.getMinConstraint())
-                .maxConstraint(entity.getMaxConstraint())
-                .maxSecondCourseConstraint(entity.getMaxSecondCourseConstraint())
+                .firstYearTarget(entity.getFirstYearTarget())
+                .secondYearTarget(entity.getSecondYearTarget())
+                .active(entity.getActive())
                 .currentTeams(entity.getCurrentTeams().stream().map(x->teamDtoMapper.mapToDto(x)).toList())
                 .build();
     }
