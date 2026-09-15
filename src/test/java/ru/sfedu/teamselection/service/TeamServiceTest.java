@@ -22,6 +22,7 @@ import ru.sfedu.teamselection.BasicTestContainerTest;
 import ru.sfedu.teamselection.TeamSelectionApplication;
 import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Team;
+import ru.sfedu.teamselection.domain.TeamComposition;
 import ru.sfedu.teamselection.domain.Technology;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.ProjectTypeDto;
@@ -30,6 +31,7 @@ import ru.sfedu.teamselection.dto.team.TeamCreationDto;
 import ru.sfedu.teamselection.dto.team.TeamSearchOptionsDto;
 import ru.sfedu.teamselection.dto.team.TeamUpdateDto;
 import ru.sfedu.teamselection.exception.BusinessException;
+import ru.sfedu.teamselection.exception.ConstraintViolationException;
 import ru.sfedu.teamselection.exception.ForbiddenException;
 import ru.sfedu.teamselection.repository.StudentRepository;
 import ru.sfedu.teamselection.repository.TeamRepository;
@@ -74,7 +76,7 @@ class TeamServiceTest extends BasicTestContainerTest {
         Assertions.assertEquals(expected.getId(), actual.getId());
         Assertions.assertEquals(expected.getName(), actual.getName());
         Assertions.assertEquals(expected.getProjectDescription(), actual.getProjectDescription());
-        Assertions.assertEquals(expected.getQuantityOfStudents(), actual.getQuantityOfStudents());
+        Assertions.assertEquals(expected.getStudents().size(), actual.getStudents().size());
     }
 
     @Test
@@ -114,7 +116,33 @@ class TeamServiceTest extends BasicTestContainerTest {
         Assertions.assertEquals(teamCreationDto.getName(), actual.getName());
         Assertions.assertEquals(teamCreationDto.getProjectDescription(), actual.getProjectDescription());
         Assertions.assertEquals(teamCreationDto.getCaptainId(), actual.getCaptainId());
-        Assertions.assertEquals(1, actual.getQuantityOfStudents());
+        Assertions.assertEquals(1, actual.getStudents().size());
+    }
+
+    @Test
+    void createIgnoresClientTrackAndUsesTheCurrentSelection() {
+        TeamCreationDto teamCreationDto = TeamCreationDto.builder()
+                .name("history attempt")
+                .projectType(new ProjectTypeDto().id(1L))
+                .captainId(5L)
+                .currentTrackId(2L)
+                .build();
+
+        Team actual = underTest.create(teamCreationDto, getAdmin());
+
+        Assertions.assertEquals(1L, actual.getCurrentTrack().getId());
+    }
+
+    @Test
+    @Sql(statements = "UPDATE students SET current_track_id = 2 WHERE id = 9")
+    void createWhenCaptainIsNotRegisteredForTheCurrentSelectionShouldFail() {
+        TeamCreationDto teamCreationDto = TeamCreationDto.builder()
+                .name("stale captain")
+                .projectType(new ProjectTypeDto().id(1L))
+                .captainId(9L)
+                .build();
+
+        Assertions.assertThrows(BusinessException.class, () -> underTest.create(teamCreationDto, getAdmin()));
     }
 
     @Test
@@ -151,16 +179,17 @@ class TeamServiceTest extends BasicTestContainerTest {
 
     @Test
     void updateFromTeamCaptain() {
-        Team beforeUpdateTeam = teamRepository.findById(2L).orElseThrow();
+        Team beforeUpdateTeam = teamRepository.findById(1L).orElseThrow();
+        int membersBefore = beforeUpdateTeam.getStudents().size();
 
         TeamUpdateDto teamDto = TeamUpdateDto.builder()
                 .id(beforeUpdateTeam.getId())
                 .captainId(beforeUpdateTeam.getCaptainId())
-                .name("about self") // should not be updated
+                .name(beforeUpdateTeam.getName())
                 .projectDescription("contacts")
                 .projectType(new ProjectTypeDto().id(1L))
                 .studentIds(beforeUpdateTeam.getStudents().stream().map(Student::getId).collect(Collectors.toUnmodifiableSet()))
-                .currentTrackId(1L)
+                .currentTrackId(2L) // ignored: a team never moves between selections
                 .build();
 
         Team actual = underTest.update(
@@ -172,23 +201,23 @@ class TeamServiceTest extends BasicTestContainerTest {
         );
         Assertions.assertEquals(teamDto.getProjectDescription(), actual.getProjectDescription());
         Assertions.assertEquals(teamDto.getProjectType().getId(), actual.getProjectType().getId());
-
-        // shouldn't be updated
-        Assertions.assertEquals(beforeUpdateTeam.getName(), actual.getName());
-        Assertions.assertEquals(beforeUpdateTeam.getQuantityOfStudents(), actual.getQuantityOfStudents());
+        Assertions.assertEquals(1L, actual.getCurrentTrack().getId());
+        Assertions.assertEquals(membersBefore, actual.getStudents().size());
     }
 
     @Test
     void updateFromAdmin() {
-        Team beforeUpdateTeam = teamRepository.findById(2L).orElseThrow();
+        Team beforeUpdateTeam = teamRepository.findById(1L).orElseThrow();
+        int membersBefore = beforeUpdateTeam.getStudents().size();
 
         TeamUpdateDto teamDto = TeamUpdateDto.builder()
                 .id(beforeUpdateTeam.getId())
+                .name(beforeUpdateTeam.getName())
                 .projectDescription("contacts")
                 .projectType(new ProjectTypeDto().id(3L))
-                .currentTrackId(3L) // the same as was
-                .captainId(1L) // should be updated
-                .currentTrackId(1L)
+                .captainId(12L) // should be updated
+                .studentIds(beforeUpdateTeam.getStudents().stream().map(Student::getId).collect(Collectors.toUnmodifiableSet()))
+                .currentTrackId(2L) // ignored
                 .build();
 
         Team actual = underTest.update(
@@ -199,12 +228,28 @@ class TeamServiceTest extends BasicTestContainerTest {
 
         Assertions.assertEquals(teamDto.getProjectDescription(), actual.getProjectDescription());
         Assertions.assertEquals(teamDto.getProjectType().getId(), actual.getProjectType().getId());
-        Assertions.assertEquals(beforeUpdateTeam.getQuantityOfStudents(), actual.getQuantityOfStudents());
+        Assertions.assertEquals(12L, actual.getCaptainId());
+        Assertions.assertEquals(1L, actual.getCurrentTrack().getId());
+        Assertions.assertEquals(membersBefore, actual.getStudents().size());
+    }
 
-        // clean up
-        actual.setQuantityOfStudents(actual.getQuantityOfStudents() + 1);
-        actual.setCaptainId(3L);
-        teamRepository.save(actual);
+    @Test
+    void updateTeamOfFinishedSelectionShouldFail() {
+        Team history = teamRepository.findById(2L).orElseThrow();
+
+        TeamUpdateDto teamDto = TeamUpdateDto.builder()
+                .id(history.getId())
+                .name("renamed")
+                .projectType(new ProjectTypeDto().id(1L))
+                .captainId(history.getCaptainId())
+                .build();
+
+        Assertions.assertThrows(BusinessException.class, () -> underTest.update(history.getId(), teamDto, getAdmin()));
+    }
+
+    @Test
+    void deleteTeamOfFinishedSelectionShouldFail() {
+        Assertions.assertThrows(BusinessException.class, () -> underTest.delete(2L));
     }
 
     @Test
@@ -283,10 +328,18 @@ class TeamServiceTest extends BasicTestContainerTest {
         );
 
         for (Team team : actual) {
-            Assertions.assertEquals(isFullParam, team.getIsFull());
+            Assertions.assertEquals(isFullParam, TeamComposition.of(team).complete());
         }
 
         Assertions.assertEquals(1, actual.getTotalElements());
+    }
+
+    @Test
+    @Sql(statements = "UPDATE teams SET first_year_target = 4 WHERE id = 1003")
+    void searchByIsFullRespectsTeamOverride() {
+        Page<Team> actual = underTest.search(null, null, true, null, null, Pageable.unpaged());
+
+        Assertions.assertEquals(0, actual.getTotalElements());
     }
 
     @Test
@@ -334,17 +387,6 @@ class TeamServiceTest extends BasicTestContainerTest {
     }
 
     @Test
-    void getSecondYearsCount() {
-        Team team = underTest.findByIdOrElseThrow(1L);
-
-        int expected = 1;
-
-        int actual = underTest.getSecondYearsCount(team);
-
-        Assertions.assertEquals(expected, actual);
-    }
-
-    @Test
     void addStudentToTeamWhoHasTeamShouldFail() {
         Assertions.assertThrows(
                 RuntimeException.class,
@@ -361,8 +403,8 @@ class TeamServiceTest extends BasicTestContainerTest {
         Assertions.assertThrows(RuntimeException.class,
                 () -> underTest.addStudentToTeam(
                         1004L,
-                        11L,
-                        studentRepository.findById(11L).orElseThrow().getUser()
+                         9L, // first-year places of 1004 are taken
+                        studentRepository.findById(9L).orElseThrow().getUser()
                 )
         );
     }
@@ -390,7 +432,7 @@ class TeamServiceTest extends BasicTestContainerTest {
 
     @Test
     void addStudentToTeam() {
-        Long teamId = 2L;
+        Long teamId = 1L;
         Long studentId = 7L;
 
         underTest.addStudentToTeam(teamId, studentId, studentRepository.findById(studentId).orElseThrow().getUser());
@@ -400,22 +442,45 @@ class TeamServiceTest extends BasicTestContainerTest {
 
         Assertions.assertTrue(student.getHasTeam());
         Assertions.assertEquals(teamId, student.getCurrentTeam().getId());
-        Assertions.assertEquals(2, team.getQuantityOfStudents());
-        Assertions.assertFalse(team.getIsFull());
+        Assertions.assertEquals(3, team.getStudents().size());
+        Assertions.assertEquals(2, TeamComposition.of(team).firstYears());
         Assertions.assertTrue(team.getStudents().contains(student));
     }
 
     @Test
+    @Sql(statements = "UPDATE teams SET first_year_target = 4 WHERE id = 1003")
+    void addFirstYearToTeamWithRaisedFirstYearTarget() {
+        Team team = underTest.addStudentToTeam(1003L, 9L, studentRepository.findById(9L).orElseThrow().getUser());
+
+        Assertions.assertEquals(4, TeamComposition.of(team).firstYears());
+        Assertions.assertTrue(TeamComposition.of(team).complete());
+    }
+
+    @Test
+    void addStudentToTeamOfFinishedSelectionShouldFail() {
+        Assertions.assertThrows(BusinessException.class,
+                () -> underTest.addStudentToTeam(2L, 7L, getAdmin())
+        );
+    }
+
+    @Test
+    @Sql(statements = "UPDATE students SET current_track_id = 2 WHERE id = 9")
+    void addStudentFromAnotherSelectionShouldFail() {
+        Assertions.assertThrows(ConstraintViolationException.class,
+                () -> underTest.addStudentToTeam(1L, 9L, getAdmin())
+        );
+    }
+
+    @Test
     void removeStudentFromTeam() {
-        Student deleteStudent = studentRepository.findById(16L).orElseThrow();
+        Student deleteStudent = studentRepository.findById(12L).orElseThrow();
 
         Team teamBeforeDelete = teamRepository.findById(deleteStudent.getCurrentTeam().getId()).orElseThrow();
 
         Team teamAfterDelete = underTest.removeStudentFromTeam(teamBeforeDelete, deleteStudent);
 
-        Assertions.assertEquals(4, teamAfterDelete.getQuantityOfStudents());
-        Assertions.assertEquals(false, teamAfterDelete.getIsFull());
-        Assertions.assertEquals(4, teamAfterDelete.getStudents().size());
+        Assertions.assertEquals(1, teamAfterDelete.getStudents().size());
+        Assertions.assertEquals(0, TeamComposition.of(teamAfterDelete).secondYears());
     }
 
     @Test
@@ -425,7 +490,7 @@ class TeamServiceTest extends BasicTestContainerTest {
         Set<Long> expectedTechnologies = Set.of(4L, 21L, 22L, 24L, 10L, 28L, 29L, 47L, 48L);
 
         Assertions.assertEquals(
-                Set.of(1L, 3L, 2L, 4L, 5L, 6L, 7L, 8L),
+                Set.of(1L, 3L, 2L, 4L, 5L, 6L, 7L), // «Other» (8) was dropped by V2.01
                 actual.getProjectTypes().stream().map(ProjectTypeDto::getId).collect(Collectors.toUnmodifiableSet())
         );
         Assertions.assertEquals(

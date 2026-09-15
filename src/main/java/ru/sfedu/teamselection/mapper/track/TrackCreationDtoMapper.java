@@ -1,5 +1,6 @@
 package ru.sfedu.teamselection.mapper.track;
 
+import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import ru.sfedu.teamselection.domain.Track;
@@ -10,6 +11,7 @@ import ru.sfedu.teamselection.mapper.DtoMapper;
 @Component
 @RequiredArgsConstructor
 public class TrackCreationDtoMapper implements DtoMapper<TrackCreationDto, Track> {
+    private static final int DEFAULT_TARGET = 3;
 
 
     @Override
@@ -23,9 +25,8 @@ public class TrackCreationDtoMapper implements DtoMapper<TrackCreationDto, Track
                 .startDate(dto.getStartDate())
                 .endDate(dto.getEndDate())
                 .type(TrackType.valueOf(dto.getType())) // Преобразование строки в Enum
-                .minConstraint(dto.getMinConstraint())
-                .maxConstraint(dto.getMaxConstraint())
-                .maxSecondCourseConstraint(dto.getMaxSecondCourseConstraint())
+                .firstYearTarget(Objects.requireNonNullElse(dto.getFirstYearTarget(), DEFAULT_TARGET))
+                .secondYearTarget(Objects.requireNonNullElse(dto.getSecondYearTarget(), DEFAULT_TARGET))
                 .build();
     }
 
@@ -40,9 +41,8 @@ public class TrackCreationDtoMapper implements DtoMapper<TrackCreationDto, Track
                 .startDate(entity.getStartDate())
                 .endDate(entity.getEndDate())
                 .type(entity.getType() != null ? entity.getType().toString() : null) // Преобразование Enum в строку
-                .minConstraint(entity.getMinConstraint())
-                .maxConstraint(entity.getMaxConstraint())
-                .maxSecondCourseConstraint(entity.getMaxSecondCourseConstraint())
+                .firstYearTarget(entity.getFirstYearTarget())
+                .secondYearTarget(entity.getSecondYearTarget())
                 .build();
     }
 }

@@ -31,6 +31,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -84,9 +85,8 @@ public class TrackControllerTest {
                     .startDate(LocalDate.of(2025, 9, 12))
                     .endDate(LocalDate.of(2026, 9, 11))
                     .type(TrackType.bachelor)
-                    .maxConstraint(7)
-                    .minConstraint(2)
-                    .maxSecondCourseConstraint(2)
+                    .firstYearTarget(2)
+                    .secondYearTarget(4)
                     .build(),
             Track.builder()
                     .id(2L)
@@ -95,9 +95,8 @@ public class TrackControllerTest {
                     .startDate(LocalDate.of(2025, 9, 12))
                     .endDate(LocalDate.of(2026, 9, 11))
                     .type(TrackType.master)
-                    .maxConstraint(7)
-                    .minConstraint(2)
-                    .maxSecondCourseConstraint(2)
+                    .firstYearTarget(2)
+                    .secondYearTarget(4)
                     .build()
     );
 
@@ -111,9 +110,8 @@ public class TrackControllerTest {
                         .startDate(LocalDate.of(2025, 9, 12))
                         .endDate(LocalDate.of(2026, 9, 11))
                         .type("master")
-                        .maxConstraint(7)
-                        .minConstraint(2)
-                        .maxSecondCourseConstraint(2)
+                        .firstYearTarget(2)
+                        .secondYearTarget(4)
                         .build()
                 )
         ).when(trackService).findAll();
@@ -153,9 +151,8 @@ public class TrackControllerTest {
                    "startDate": "2024-01-15",
                    "endDate": "2024-03-15",
                    "type": "BOOTCAMP",
-                   "minConstraint": 5,
-                   "maxConstraint": 20,
-                   "maxSecondCourseConstraint": 10
+                   "firstYearTarget": 3,
+                   "secondYearTarget": 3
                  }""";
 
         mockMvc.perform(post("/api/v1/tracks")
@@ -175,9 +172,8 @@ public class TrackControllerTest {
                    "startDate": "2024-01-15",
                    "endDate": "2024-03-15",
                    "type": "BOOTCAMP",
-                   "minConstraint": 5,
-                   "maxConstraint": 20,
-                   "maxSecondCourseConstraint": 10
+                   "firstYearTarget": 3,
+                   "secondYearTarget": 3
                  }""";
 
         mockMvc.perform(post("/api/v1/tracks")
@@ -199,9 +195,8 @@ public class TrackControllerTest {
                    "startDate": "2024-01-15",
                    "endDate": "2024-03-15",
                    "type": "BOOTCAMP",
-                   "minConstraint": 5,
-                   "maxConstraint": 20,
-                   "maxSecondCourseConstraint": 10
+                   "firstYearTarget": 3,
+                   "secondYearTarget": 3
                  }""";
 
         mockMvc.perform(put("/api/v1/tracks/{id}".replace("{id}", "1"))
@@ -223,9 +218,8 @@ public class TrackControllerTest {
                    "startDate": "2024-01-15",
                    "endDate": "2024-03-15",
                    "type": "BOOTCAMP",
-                   "minConstraint": 5,
-                   "maxConstraint": 20,
-                   "maxSecondCourseConstraint": 10
+                   "firstYearTarget": 3,
+                   "secondYearTarget": 3
                  }""";
 
         mockMvc.perform(put("/api/v1/tracks/{id}".replace("{id}", "1"))
@@ -256,5 +250,52 @@ public class TrackControllerTest {
                         .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser))
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void whenFindCurrentTrackThenReturnActiveTrackWithoutTeams() throws Exception {
+        Track active = Track.builder().id(7L).name("Отбор 2026").active(true).build();
+        Mockito.doReturn(active).when(trackService).getActive();
+        Mockito.doReturn(TrackDto.builder().id(7L).name("Отбор 2026").active(true).build())
+                .when(TrackDtoMapper).mapToDtoWithoutTeams(active);
+
+        mockMvc.perform(get("/api/v1/tracks/current")
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value(7))
+                .andExpect(jsonPath("$.active").value(true));
+    }
+
+    @Test
+    public void whenNoSelectionStartedThenCurrentTrackReturns404() throws Exception {
+        Mockito.doThrow(new NotFoundException("Отбор не настроен")).when(trackService).getActive();
+
+        mockMvc.perform(get("/api/v1/tracks/current")
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
+                .andExpect(status().isNotFound());
+    }
+
+    @Test
+    public void whenStartNewSelectionFromAdminThenReturn200() throws Exception {
+        mockMvc.perform(post("/api/v1/tracks/new-selection")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin))
+                        .content("{\"name\": \"Отбор 2027\", \"startDate\": \"2027-10-01\"}")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+
+        Mockito.verify(trackService).startNewSelection(Mockito.any());
+    }
+
+    @Test
+    public void whenStartNewSelectionNotFromAdminThenReturn403() throws Exception {
+        mockMvc.perform(post("/api/v1/tracks/new-selection")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser))
+                        .content("{}")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
+
+        Mockito.verify(trackService, Mockito.never()).startNewSelection(Mockito.any());
     }
 }

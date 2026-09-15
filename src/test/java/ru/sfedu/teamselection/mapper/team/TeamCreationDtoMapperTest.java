@@ -82,9 +82,7 @@ class TeamCreationDtoMapperTest {
                 .captainId(dto.getCaptainId())
                 .technologies(List.of())
                 .currentTrack(Track.builder().id(dto.getCurrentTrackId()).build())
-                .quantityOfStudents(0)
                 .students(List.of())
-                .isFull(false)
                 .applications(List.of())
                 .build();
 
@@ -96,9 +94,7 @@ class TeamCreationDtoMapperTest {
         Assertions.assertEquals(expected.getCaptainId(), actual.getCaptainId());
         Assertions.assertEquals(expected.getTechnologies().size(), actual.getTechnologies().size());
         Assertions.assertEquals(expected.getCurrentTrack().getId(), actual.getCurrentTrack().getId());
-        Assertions.assertEquals(expected.getQuantityOfStudents(), actual.getQuantityOfStudents());
         Assertions.assertEquals(expected.getStudents().size(), actual.getStudents().size());
-        Assertions.assertEquals(expected.getIsFull(), actual.getIsFull());
         Assertions.assertEquals(expected.getApplications().size(), actual.getApplications().size());
     }
 
@@ -115,9 +111,7 @@ class TeamCreationDtoMapperTest {
                 .captainId(1L)
                 .technologies(List.of())
                 .currentTrack(Track.builder().id(12L).build())
-                .quantityOfStudents(0)
                 .students(List.of())
-                .isFull(false)
                 .applications(List.of())
                 .build();
 

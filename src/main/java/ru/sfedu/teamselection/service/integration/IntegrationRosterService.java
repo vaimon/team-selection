@@ -8,6 +8,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Team;
+import ru.sfedu.teamselection.domain.TeamComposition;
 import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.dto.integration.IntegrationRosterDto;
 import ru.sfedu.teamselection.dto.integration.IntegrationStudentDto;
@@ -80,8 +81,8 @@ public class IntegrationRosterService {
                 .projectDescription(team.getProjectDescription())
                 .projectType(team.getProjectType() == null ? null : team.getProjectType().getName())
                 .captainStudentId(captainId == null || captainId == NO_CAPTAIN ? null : captainId)
-                .isFull(team.getIsFull())
-                .quantityOfStudents(team.getQuantityOfStudents())
+                .isFull(TeamComposition.of(team).complete())
+                .quantityOfStudents(team.getStudents().size())
                 .build();
     }
 

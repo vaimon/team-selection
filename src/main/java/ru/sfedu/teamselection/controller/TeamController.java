@@ -85,8 +85,10 @@ public class TeamController {
     )
     @GetMapping(GET_SEARCH_OPTIONS)
     @Auditable(auditPoint = "Team.GetSearchOptionsTeams")
-    public ResponseEntity<TeamSearchOptionsDto> getSearchOptionsTeams(@RequestParam(value = "track_id") Long trackId) {
-        TeamSearchOptionsDto result = teamService.getSearchOptionsTeams(trackId);
+    public ResponseEntity<TeamSearchOptionsDto> getSearchOptionsTeams(
+            @RequestParam(value = "track_id", required = false) Long trackId
+    ) {
+        TeamSearchOptionsDto result = teamService.getSearchOptionsTeams(teamService.resolveTrackId(trackId));
         return ResponseEntity.ok(result);
     }
 
@@ -108,8 +110,8 @@ public class TeamController {
             summary = "Поиск команд с фильтрацией, пагинацией и сортировкой",
             parameters = {
                     @Parameter(name = "input", description = "строка из поиска", in = ParameterIn.QUERY),
-                    @Parameter(name = "track_id", description = "ID трека", in = ParameterIn.QUERY),
-                    @Parameter(name = "is_full", description = "Полностью ли укомплектована команда", in = ParameterIn.QUERY),
+                    @Parameter(name = "track_id", description = "ID трека; по умолчанию текущий отбор", in = ParameterIn.QUERY),
+                    @Parameter(name = "is_full", description = "Команда собрана: выполнены цели по обоим курсам", in = ParameterIn.QUERY),
                     @Parameter(name = "project_type", description = "Тип проекта", in = ParameterIn.QUERY),
                     @Parameter(name = "technologies", description = "Список ID технологий", in = ParameterIn.QUERY),
                     @Parameter(name = "page", description = "Номер страницы", example = "0", in = ParameterIn.QUERY),
@@ -134,7 +136,8 @@ public class TeamController {
                 : Sort.Direction.ASC;
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortParams[0]));
 
-        Page<TeamDto> result = teamService.search(like, trackId, isFull, projectType, technologies, pageable)
+        Page<TeamDto> result = teamService
+                .search(like, teamService.resolveTrackId(trackId), isFull, projectType, technologies, pageable)
                 .map(teamDtoMapper::mapToDto);
         return ResponseEntity.ok(pageResponseMapper.toDto(result));
     }

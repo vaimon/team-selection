@@ -66,8 +66,6 @@ class TeamExportServiceTest {
                 .students(List.of(captain))
                 .technologies(List.of(java, spring))
                 .currentTrack(track)
-                .quantityOfStudents(1)
-                .isFull(false)
                 .build();
 
         testTeams = List.of(team1);

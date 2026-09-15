@@ -74,9 +74,8 @@ public class StudentDtoMapper implements DtoMapper<StudentDto, Student> {
                                                 ? entity.getCurrentTrack().getType().toString()
                                                 : null
                                 )
-                                .minConstraint(entity.getCurrentTrack().getMinConstraint())
-                                .maxConstraint(entity.getCurrentTrack().getMaxConstraint())
-                                .maxSecondCourseConstraint(entity.getCurrentTrack().getMaxSecondCourseConstraint())
+                                .firstYearTarget(entity.getCurrentTrack().getFirstYearTarget())
+                                .secondYearTarget(entity.getCurrentTrack().getSecondYearTarget())
                                 .build()
                 )
                 .hasTeam(entity.getHasTeam())

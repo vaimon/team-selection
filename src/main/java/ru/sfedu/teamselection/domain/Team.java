@@ -49,17 +49,16 @@ public class Team {
     @ManyToOne(fetch = FetchType.LAZY)
     private ProjectType projectType;
 
-    @Column(name = "quantity_of_students")
-    @Builder.Default
-    private Integer quantityOfStudents = 0;
-
     @Column(name = "captain_id", nullable = false)
     @Builder.Default
     private Long captainId = -1L;
 
-    @Column(name = "is_full")
-    @Builder.Default
-    private Boolean isFull = false;
+    // Admin override of the track targets for this team only; null = use the track's.
+    @Column(name = "first_year_target")
+    private Integer firstYearTarget;
+
+    @Column(name = "second_year_target")
+    private Integer secondYearTarget;
 
     @Column
     @ManyToMany

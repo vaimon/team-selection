@@ -36,6 +36,7 @@ public class TeamDto {
     @JsonProperty(value = "project_type")
     private ProjectTypeDto projectType;
 
+    // Derived from the members.
     @JsonProperty(value = "quantity_of_students", defaultValue = "0")
     @Builder.Default
     private Integer quantityOfStudents = 0;
@@ -44,9 +45,12 @@ public class TeamDto {
     @NotNull
     private StudentDto captain;
 
+    // Derived: the team meets both per-year targets. Kept under the old name for existing clients.
     @JsonProperty(value = "is_full")
     @Builder.Default
     private Boolean isFull = false;
+
+    private TeamCompositionDto composition;
 
     @JsonProperty(value = "current_track")
     private Long currentTrackId;

@@ -17,6 +17,8 @@ import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Transactional;
 import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Team;
+import ru.sfedu.teamselection.domain.TeamComposition;
+import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.domain.application.Application;
 import ru.sfedu.teamselection.dto.TechnologyDto;
@@ -82,7 +84,7 @@ public class TeamService {
      * Performs search across all students with given filter criteria
      * @param like like parameter for the student string representation
      * @param trackId team is assigned to this track
-     * @param isFull is team full of students
+     * @param isFull team meets both per-year targets
      * @param projectType project type defined by team's captain
      * @param technologies team's technologies(skills)
      * @param pageable pageable
@@ -102,7 +104,7 @@ public class TeamService {
             specification = specification.and(TeamSpecification.byTrack(trackId));
         }
         if (isFull != null) {
-            specification = specification.and(TeamSpecification.byIsFull(isFull));
+            specification = specification.and(TeamSpecification.byComplete(isFull));
         }
         if (projectType != null) {
             specification = specification.and(TeamSpecification.byProjectType(projectType));
@@ -120,7 +122,9 @@ public class TeamService {
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public Team create(TeamCreationDto dto, User sender) {
         String name    = dto.getName();
-        Long trackId   = dto.getCurrentTrackId();
+        // teams are created only in the current selection; a client-sent track id is ignored
+        Track track    = trackService.getActive();
+        Long trackId   = track.getId();
         // айди капитана в заявке должен совпадать с айди студента, отправившего заявку
         // либо отправитель должен быть админом
         if (!(isAdmin(sender)
@@ -144,9 +148,12 @@ public class TeamService {
         }
         // новая команда
         Team team = teamCreationDtoMapper.mapToEntity(dto);
-        team.setCurrentTrack(trackService.findByIdOrElseThrow(trackId));
+        team.setCurrentTrack(track);
 
         Student captain = studentService.findByIdOrElseThrow(dto.getCaptainId());
+        if (captain.getCurrentTrack() == null || !Objects.equals(captain.getCurrentTrack().getId(), trackId)) {
+            throw new BusinessException("Чтобы создать команду, сначала заполните анкету участника текущего отбора");
+        }
         addStudentToTeam(team, captain, false);
         team.setCaptainId(captain.getId());
         captain.setHasTeam(true);
@@ -172,6 +179,7 @@ public class TeamService {
     @Transactional
     public void delete(Long id) {
         Team team = findByIdOrElseThrow(id);
+        trackService.assertWritable(team.getCurrentTrack());
 
         for (Student teamMember : team.getStudents()) {
             if (teamMember.getCurrentTeam() != null && Objects.equals(teamMember.getCurrentTeam().getId(), id)) {
@@ -189,39 +197,30 @@ public class TeamService {
         teamRepository.deleteById(id);
     }
 
+    /**
+     * Adds a member, capped per year by the team's effective targets.
+     * @param skipRestrictions admin add: the per-year cap is not applied
+     */
     @Transactional
     public Team addStudentToTeam(Team team, Student student, Boolean skipRestrictions) {
+        trackService.assertWritable(team.getCurrentTrack());
         if (student.getHasTeam()) {
             throw new ConstraintViolationException("Студент уже состоит в команде");
         }
-        if (!skipRestrictions && team.getIsFull()) {
-            throw new ConstraintViolationException("Вступление в полную команду невозможно");
-        }
-        // ограничение по второму курсу
-        if (student.getCourse() == 2) {
-            long count2 = team.getStudents().stream()
-                    .filter(s -> s.getCourse() == 2)
-                    .count();
-            int max2 = team.getCurrentTrack().getMaxSecondCourseConstraint();
-            if (count2 >= max2) {
-                throw new ConstraintViolationException(
-                        "В команде уже достигнуто максимальное число (" + max2 + ") студентов-второкурсников");
-            }
+        if (student.getCurrentTrack() == null
+                || !Objects.equals(student.getCurrentTrack().getId(), team.getCurrentTrack().getId())) {
+            throw new ConstraintViolationException("Студент не участвует в текущем отборе");
         }
         // не дублируем участника
         if (team.getStudents().stream()
                 .anyMatch(s -> s.getId().equals(student.getId()))) {
             throw new ConstraintViolationException("Студент уже состоит в данной команде");
         }
+        if (!skipRestrictions && !TeamComposition.of(team).canJoin(student.getCourse())) {
+            throw new ConstraintViolationException(noPlacesMessage(student.getCourse()));
+        }
 
-        // добавляем
         team.getStudents().add(student);
-        team.setQuantityOfStudents(team.getQuantityOfStudents() + 1);
-        team.setIsFull(
-                team.getQuantityOfStudents().equals(
-                        team.getCurrentTrack().getMaxConstraint()
-                )
-        );
 
         student.setHasTeam(true);
         student.setCurrentTeam(team);
@@ -233,12 +232,11 @@ public class TeamService {
 
     @Transactional
     public Team removeStudentFromTeam(Team team, Student student) {
+        trackService.assertWritable(team.getCurrentTrack());
         if (team.getCaptainId().equals(student.getId())) {
             throw new ConstraintViolationException("Нельзя удалить капитана из собственной команды");
         }
         team.getStudents().removeIf(s -> s.getId().equals(student.getId()));
-        team.setQuantityOfStudents(team.getQuantityOfStudents() - 1);
-        team.setIsFull(false);
 
         student.setHasTeam(false);
         student.setCurrentTeam(null);
@@ -280,15 +278,10 @@ public class TeamService {
         if (!isAdmin && !isCaptain) {
             throw new ForbiddenException("Операция доступна только для капитана команды или администратора");
         }
+        trackService.assertWritable(team.getCurrentTrack());
 
-        // Только admin может менять эти поля:
+        // Только admin может менять эти поля (трек команды не меняется: отборы изолированы):
         if (isAdmin) {
-            if (!Objects.equals(dto.getCurrentTrackId(),
-                    team.getCurrentTrack().getId())) {
-                team.setCurrentTrack(
-                        trackService.findByIdOrElseThrow(dto.getCurrentTrackId())
-                );
-            }
             if (!Objects.equals(team.getCaptainId(), dto.getCaptainId())) {
                 Student oldCaptain = studentService.findByIdOrElseThrow(team.getCaptainId());
                 oldCaptain.setIsCaptain(false);
@@ -336,14 +329,17 @@ public class TeamService {
         return teamRepository.save(team);
     }
 
-    public int getSecondYearsCount(Team team) {
-        int res = 0;
-        for (Student student: team.getStudents()) {
-            if (student.getCourse() == 2) {
-                res += 1;
-            }
-        }
-        return res;
+    /**
+     * Reads without an explicit track show the current selection; an explicit id browses history.
+     */
+    public Long resolveTrackId(Long trackId) {
+        return trackId != null ? trackId : trackService.getActive().getId();
+    }
+
+    public static String noPlacesMessage(Integer course) {
+        return TeamComposition.isFirstYear(course)
+                ? "В команде нет мест для студентов 1 курса"
+                : "В команде нет мест для студентов 2 курса и старше";
     }
 
     @Transactional(readOnly = true)

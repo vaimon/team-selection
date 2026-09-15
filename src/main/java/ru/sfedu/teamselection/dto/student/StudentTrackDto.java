@@ -24,9 +24,7 @@ public class StudentTrackDto {
     @NotNull
     private String type;
     @Min(0)
-    private Integer minConstraint;
+    private Integer firstYearTarget;
     @Min(0)
-    private Integer maxConstraint;
-    @Min(0)
-    private Integer maxSecondCourseConstraint;
+    private Integer secondYearTarget;
 }

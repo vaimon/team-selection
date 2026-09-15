@@ -13,5 +13,7 @@ public interface TrackRepository extends JpaRepository<Track, Long> {
 //    List<Track> findAllByType(String type);
 
     Optional<Track> findByNameIgnoreCaseAndType(String name, TrackType type);
+
+    Optional<Track> findByActiveTrue();
 }
 

@@ -19,9 +19,8 @@ public class TrackCreationDtoMapperTest {
                 .startDate(LocalDate.of(2025, 9, 12))
                 .endDate(LocalDate.of(2026, 9, 11))
                 .type(TrackType.master)
-                .maxConstraint(7)
-                .minConstraint(2)
-                .maxSecondCourseConstraint(2)
+                .firstYearTarget(2)
+                .secondYearTarget(4)
                 .build();
 
         TrackCreationDto dto = TrackCreationDto.builder()
@@ -30,9 +29,8 @@ public class TrackCreationDtoMapperTest {
                 .startDate(LocalDate.of(2025, 9, 12))
                 .endDate(LocalDate.of(2026, 9, 11))
                 .type("master")
-                .maxConstraint(7)
-                .minConstraint(2)
-                .maxSecondCourseConstraint(2)
+                .firstYearTarget(2)
+                .secondYearTarget(4)
                 .build();
 
         Track actual = underTest.mapToEntity(dto);
@@ -42,9 +40,8 @@ public class TrackCreationDtoMapperTest {
         Assertions.assertEquals(expected.getType(), actual.getType());
         Assertions.assertEquals(expected.getStartDate(), actual.getStartDate());
         Assertions.assertEquals(expected.getEndDate(), actual.getEndDate());
-        Assertions.assertEquals(expected.getMinConstraint(), actual.getMinConstraint());
-        Assertions.assertEquals(expected.getMaxConstraint(), actual.getMaxConstraint());
-        Assertions.assertEquals(expected.getMaxSecondCourseConstraint(), actual.getMaxSecondCourseConstraint());
+        Assertions.assertEquals(expected.getFirstYearTarget(), actual.getFirstYearTarget());
+        Assertions.assertEquals(expected.getSecondYearTarget(), actual.getSecondYearTarget());
         Assertions.assertTrue(actual.getCurrentTeams().isEmpty());
     }
 
@@ -63,9 +60,8 @@ public class TrackCreationDtoMapperTest {
                 .startDate(LocalDate.of(2025, 9, 12))
                 .endDate(LocalDate.of(2026, 9, 11))
                 .type(TrackType.master)
-                .maxConstraint(7)
-                .minConstraint(2)
-                .maxSecondCourseConstraint(2)
+                .firstYearTarget(2)
+                .secondYearTarget(4)
                 .build();
 
         TrackCreationDto expected = TrackCreationDto.builder()
@@ -74,9 +70,8 @@ public class TrackCreationDtoMapperTest {
                 .startDate(LocalDate.of(2025, 9, 12))
                 .endDate(LocalDate.of(2026, 9, 11))
                 .type("master")
-                .maxConstraint(7)
-                .minConstraint(2)
-                .maxSecondCourseConstraint(2)
+                .firstYearTarget(2)
+                .secondYearTarget(4)
                 .build();
         TrackCreationDto actual = underTest.mapToDto(entity);
 
@@ -85,9 +80,8 @@ public class TrackCreationDtoMapperTest {
         Assertions.assertEquals(expected.getType(), actual.getType());
         Assertions.assertEquals(expected.getStartDate(), actual.getStartDate());
         Assertions.assertEquals(expected.getEndDate(), actual.getEndDate());
-        Assertions.assertEquals(expected.getMinConstraint(), actual.getMinConstraint());
-        Assertions.assertEquals(expected.getMaxConstraint(), actual.getMaxConstraint());
-        Assertions.assertEquals(expected.getMaxSecondCourseConstraint(), actual.getMaxSecondCourseConstraint());
+        Assertions.assertEquals(expected.getFirstYearTarget(), actual.getFirstYearTarget());
+        Assertions.assertEquals(expected.getSecondYearTarget(), actual.getSecondYearTarget());
     }
 
     @Test

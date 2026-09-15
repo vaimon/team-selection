@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import ru.sfedu.teamselection.BasicTestContainerTest;
 import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.dto.track.TrackCreationDto;
+import ru.sfedu.teamselection.dto.track.NewSelectionDto;
 import ru.sfedu.teamselection.dto.track.TrackDto;
 import ru.sfedu.teamselection.enums.TrackType;
 import ru.sfedu.teamselection.exception.BusinessException;
@@ -47,9 +48,8 @@ public class TrackServiceTest extends BasicTestContainerTest {
                 .startDate(LocalDate.now().plusDays(1))
                 .endDate(LocalDate.now().plusDays(30))
                 .type("master")
-                .minConstraint(5)
-                .maxConstraint(20)
-                .maxSecondCourseConstraint(10)
+                .firstYearTarget(4)
+                .secondYearTarget(2)
                 .build();
     }
 
@@ -207,9 +207,8 @@ public class TrackServiceTest extends BasicTestContainerTest {
                 .startDate(LocalDate.now().plusDays(5))
                 .endDate(LocalDate.now().plusDays(35))
                 .type("bachelor")
-                .minConstraint(10)
-                .maxConstraint(25)
-                .maxSecondCourseConstraint(15)
+                .firstYearTarget(5)
+                .secondYearTarget(1)
                 .build();
 
         // When
@@ -220,7 +219,7 @@ public class TrackServiceTest extends BasicTestContainerTest {
         assertThat(result.getName()).isEqualTo("Updated Track Name");
         assertThat(result.getAbout()).isEqualTo("Updated Description");
         assertThat(result.getType()).isEqualTo(TrackType.bachelor);
-        assertThat(result.getMinConstraint()).isEqualTo(10);
+        assertThat(result.getFirstYearTarget()).isEqualTo(5);
 
         // Verify changes persisted in database
         Track updatedTrack = trackRepository.findById(trackId).orElseThrow();
@@ -315,5 +314,105 @@ public class TrackServiceTest extends BasicTestContainerTest {
 
         // Verify only first track was persisted
         assertThat(trackRepository.findAll()).hasSize(initialCount + 1);
+    }
+
+    // active track (the current selection)
+    @Test
+    void getActive_returnsTheOnlyActiveTrack() {
+        Track actual = trackService.getActive();
+
+        assertThat(actual.getId()).isEqualTo(1L);
+        assertThat(trackRepository.findAll()).filteredOn(Track::getActive).hasSize(1);
+    }
+
+    @Test
+    void getActive_whenNoneIsActive_thenThrowNotFound() {
+        Track active = trackService.getActive();
+        active.setActive(false);
+        trackRepository.saveAndFlush(active);
+
+        assertThatThrownBy(() -> trackService.getActive())
+                .isInstanceOf(NotFoundException.class)
+                .hasMessageContaining("Отбор не настроен");
+    }
+
+    @Test
+    void startNewSelection_copiesSettingsAndBecomesTheOnlyActiveTrack() {
+        Track previous = trackService.getActive();
+        previous.setFirstYearTarget(4);
+        previous.setSecondYearTarget(2);
+        trackRepository.saveAndFlush(previous);
+
+        Track actual = trackService.startNewSelection(NewSelectionDto.builder()
+                .name("Отбор 2027")
+                .startDate(LocalDate.of(2027, 10, 1))
+                .endDate(LocalDate.of(2027, 10, 31))
+                .build());
+
+        assertThat(actual.getActive()).isTrue();
+        assertThat(actual.getFirstYearTarget()).isEqualTo(4);
+        assertThat(actual.getSecondYearTarget()).isEqualTo(2);
+        assertThat(actual.getType()).isEqualTo(previous.getType());
+        assertThat(actual.getStartDate()).isEqualTo(LocalDate.of(2027, 10, 1));
+        assertThat(trackRepository.findById(previous.getId()).orElseThrow().getActive()).isFalse();
+        assertThat(trackService.getActive().getId()).isEqualTo(actual.getId());
+    }
+
+    @Test
+    void startNewSelection_withoutName_thenNamedAfterYear() {
+        Track actual = trackService.startNewSelection(NewSelectionDto.builder()
+                .startDate(LocalDate.of(2031, 10, 1))
+                .build());
+
+        assertThat(actual.getName()).isEqualTo("Отбор 2031");
+    }
+
+    @Test
+    void startNewSelection_whenNoActiveTrack_thenUseDefaults() {
+        Track active = trackService.getActive();
+        active.setActive(false);
+        trackRepository.saveAndFlush(active);
+
+        Track actual = trackService.startNewSelection(NewSelectionDto.builder().name("С нуля").build());
+
+        assertThat(actual.getActive()).isTrue();
+        assertThat(actual.getFirstYearTarget()).isEqualTo(3);
+        assertThat(actual.getSecondYearTarget()).isEqualTo(3);
+        assertThat(actual.getType()).isEqualTo(TrackType.bachelor);
+    }
+
+    @Test
+    void assertWritable_whenTrackIsHistory_thenThrowBusinessException() {
+        Track history = trackRepository.findById(2L).orElseThrow();
+
+        assertThatThrownBy(() -> trackService.assertWritable(history))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("только для чтения");
+    }
+
+    @Test
+    void update_whenTrackIsHistory_thenThrowBusinessException() {
+        TrackDto updateDto = TrackDto.builder().name("Renamed").type("bachelor").build();
+
+        assertThatThrownBy(() -> trackService.update(2L, updateDto))
+                .isInstanceOf(BusinessException.class);
+    }
+
+    @Test
+    void update_doesNotChangeWhichTrackIsActive() {
+        TrackDto updateDto = TrackDto.builder()
+                .name("first track").type("bachelor").firstYearTarget(3).secondYearTarget(3).active(false)
+                .build();
+
+        trackService.update(1L, updateDto);
+
+        assertThat(trackService.getActive().getId()).isEqualTo(1L);
+    }
+
+    @Test
+    void deleteById_whenTrackIsActive_thenThrowBusinessException() {
+        assertThatThrownBy(() -> trackService.deleteById(trackService.getActive().getId()))
+                .isInstanceOf(BusinessException.class)
+                .hasMessageContaining("текущий отбор");
     }
 }

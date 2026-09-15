@@ -4,6 +4,7 @@ import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 import ru.sfedu.teamselection.domain.Student;
+import ru.sfedu.teamselection.domain.TeamComposition;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.domain.application.Application;
 import ru.sfedu.teamselection.domain.application.ApplicationType;
@@ -49,15 +50,15 @@ public class ApplicationValidator {
         }
 
 
-        if (team.getIsFull()) {
-            return new ValidationResult.Failure("Невозможно подать заявку — команда полная");
+        if (!Boolean.TRUE.equals(team.getCurrentTrack().getActive())) {
+            return new ValidationResult.Failure("Невозможно — отбор этой команды завершён");
         }
-        if (student.getCourse() == 2
-                && teamService.getSecondYearsCount(team) >= team.getCurrentTrack().getMaxSecondCourseConstraint()) {
-            return new ValidationResult.Failure("Невозможно — в команде уже максимальное число второкурсников");
+        if (student.getCurrentTrack() == null
+                || !Objects.equals(student.getCurrentTrack().getId(), team.getCurrentTrack().getId())) {
+            return new ValidationResult.Failure("Невозможно — студент не участвует в текущем отборе");
         }
-        if (!Objects.equals(student.getCurrentTrack().getId(), team.getCurrentTrack().getId())) {
-            return new ValidationResult.Failure("Невозможно — неверный трек");
+        if (!TeamComposition.of(team).canJoin(student.getCourse())) {
+            return new ValidationResult.Failure("Невозможно — " + TeamService.noPlacesMessage(student.getCourse()));
         }
         return new ValidationResult.Success();
     }
@@ -97,9 +98,9 @@ public class ApplicationValidator {
                 || ApplicationStatus.of(application.getStatus()).equals(ApplicationStatus.REJECTED))) {
             return new ValidationResult.Failure("Невозможно одобрить — заявка в неподходящем статусе");
         }
-        var team = application.getTeam();
-        if (team.getIsFull()) {
-            return new ValidationResult.Failure("Невозможно одобрить — команда уже полная");
+        if (!TeamComposition.of(application.getTeam()).canJoin(application.getStudent().getCourse())) {
+            return new ValidationResult.Failure(
+                    "Невозможно одобрить — " + TeamService.noPlacesMessage(application.getStudent().getCourse()));
         }
         return new ValidationResult.Success();
     }

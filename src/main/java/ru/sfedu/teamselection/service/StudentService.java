@@ -1,6 +1,7 @@
 package ru.sfedu.teamselection.service;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +15,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.sfedu.teamselection.domain.Student;
+import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.StudentUpdateDto;
 import ru.sfedu.teamselection.dto.student.StudentCreationDto;
@@ -40,6 +42,7 @@ public class StudentService {
     private final RoleRepository roleRepository;
 
     private final StudentUpdateFactory studentUpdateFactory;
+    private final TrackService trackService;
 
     @Lazy
     @Autowired
@@ -134,9 +137,10 @@ public class StudentService {
 
 
     /**
-     * Creates student using given data.
-     * @param dto DTO containing student data
-     * @return created student
+     * Registers the user for the current selection. The students row is lifetime (one per user), so a student
+     * returning for a new selection gets their row updated and moved to it, without last year's team.
+     * @param dto DTO containing student data; its track id is ignored
+     * @return created or updated student
      */
     @Transactional
     public Student create(StudentCreationDto dto) {
@@ -144,9 +148,27 @@ public class StudentService {
         var role = roleRepository.findByName("STUDENT")
                 .orElseThrow(() -> new NotFoundException("Роль STUDENT не найдена"));
         user.setRole(role);
+        Track active = trackService.getActive();
 
-        Student student = studentCreationDtoMapper.mapToEntity(dto);
-        student.setUser(user);
+        if (!studentRepository.existsByUserId(user.getId())) {
+            Student student = studentCreationDtoMapper.mapToEntity(dto);
+            student.setUser(user);
+            student.setCurrentTrack(active);
+            return studentRepository.save(student);
+        }
+
+        Student student = studentRepository.findByUserId(user.getId());
+        student.setCourse(dto.getCourse());
+        student.setGroupNumber(dto.getGroupNumber());
+        student.setAboutSelf(dto.getAboutSelf());
+        student.setContacts(dto.getContacts());
+        if (student.getCurrentTrack() == null || !Objects.equals(student.getCurrentTrack().getId(), active.getId())) {
+            // the old team stays in its read-only selection; membership history is kept in teams_students
+            student.setHasTeam(false);
+            student.setCurrentTeam(null);
+            student.setIsCaptain(false);
+            student.setCurrentTrack(active);
+        }
         return studentRepository.save(student);
     }
 
@@ -187,6 +209,13 @@ public class StudentService {
             case 5 -> TrackType.master;
             default -> null;
         };
+    }
+
+    /**
+     * Reads without an explicit track show the current selection; an explicit id browses history.
+     */
+    public Long resolveTrackId(Long trackId) {
+        return trackId != null ? trackId : trackService.getActive().getId();
     }
 
     /**

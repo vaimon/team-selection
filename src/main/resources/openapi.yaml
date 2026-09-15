@@ -422,6 +422,44 @@ paths:
             'application/json':
               schema:
                 $ref: '#/components/schemas/TrackDto'
+  /api/v1/tracks/current:
+    get:
+      tags:
+        - Track
+      summary: 'Текущий отбор (активный трек)'
+      operationId: findCurrentTrack
+      responses:
+        '200':
+          description: OK
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/TrackDto'
+        '404':
+          description: Отбор ещё не начат
+  /api/v1/tracks/new-selection:
+    post:
+      tags:
+        - Track
+      summary: Начать новый отбор
+      description: |
+        Создаёт новый активный трек с настройками текущего; прежний становится доступен только для чтения.
+
+        Эта операция может быть выполнена только администратором ресурса.
+      operationId: startNewSelection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NewSelectionDto'
+        required: true
+      responses:
+        '200':
+          description: OK
+          content:
+            'application/json':
+              schema:
+                $ref: '#/components/schemas/TrackDto'
   /api/v1/tracks/{trackId}:
     get:
       tags:

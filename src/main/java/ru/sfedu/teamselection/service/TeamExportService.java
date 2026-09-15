@@ -31,6 +31,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Team;
+import ru.sfedu.teamselection.domain.TeamComposition;
 
 @Service
 @RequiredArgsConstructor
@@ -80,9 +81,9 @@ public class TeamExportService {
                         team.getName(),
                         team.getProjectDescription(),
                         Optional.ofNullable(team.getProjectType()).map(pt -> pt.getName()).orElse(""),
-                        team.getQuantityOfStudents(),
+                        team.getStudents().size(),
                         captainFio,
-                        team.getIsFull(),
+                        team.getCurrentTrack() == null ? "" : TeamComposition.of(team).complete(),
                         Optional.ofNullable(team.getCurrentTrack()).map(tr -> tr.getName()).orElse(""),
                         techList
                 );
@@ -188,14 +189,18 @@ public class TeamExportService {
                         .map(t -> t.getName())
                         .collect(Collectors.joining("; "));
 
+                String complete = Optional.ofNullable(team.getCurrentTrack())
+                        .map(tr -> String.valueOf(TeamComposition.of(team).complete()))
+                        .orElse("");
+
                 String[] data = {
                         team.getId().toString(),
                         team.getName(),
                         Optional.ofNullable(team.getProjectDescription()).orElse(""),
                         Optional.ofNullable(team.getProjectType()).map(pt -> pt.getName()).orElse(""),
-                        team.getQuantityOfStudents().toString(),
+                        String.valueOf(team.getStudents().size()),
                         captainFio,
-                        team.getIsFull().toString(),
+                        complete,
                         Optional.ofNullable(team.getCurrentTrack()).map(tr -> tr.getName()).orElse(""),
                         techList
                 };
