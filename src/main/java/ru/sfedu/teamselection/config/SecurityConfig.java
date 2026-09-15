@@ -16,6 +16,9 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import ru.sfedu.teamselection.config.security.CurrentAuthoritiesFilter;
+import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import org.springframework.security.web.access.expression.WebExpressionAuthorizationManager;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.web.cors.CorsConfiguration;
@@ -35,6 +38,7 @@ public class SecurityConfig {
     private final Oauth2UserService oauth2UserService;
     private final AzureOidcUserService oidcUserService;
     private final SimpleAuthenticationSuccessHandler simpleAuthenticationSuccessHandler;
+    private final CurrentAuthoritiesResolver currentAuthoritiesResolver;
     private static final String ADMIN_ROLE_NAME = "ROLE_ADMIN";
     public static final String LOGOUT_URL = "/api/v1/auth/logout";
 
@@ -57,7 +61,6 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/prometheus")
                             .access(new WebExpressionAuthorizationManager("hasIpAddress('10.5.0.55')"))
                         .requestMatchers("/api/**").authenticated()
-                        .requestMatchers("/api/v1/tracks").permitAll()
                         .anyRequest().permitAll()
                 )
                 .sessionManagement(session -> session
@@ -80,7 +83,9 @@ public class SecurityConfig {
                 )
                 .exceptionHandling(handler -> handler
                         .authenticationEntryPoint(new CustomAuthenticationEntryPoint(frontendLoginUrl))
-                );
+                )
+                // roles are read from the DB per request, see CurrentAuthoritiesFilter
+                .addFilterBefore(new CurrentAuthoritiesFilter(currentAuthoritiesResolver), AuthorizationFilter.class);
         return http.build();
     }
 

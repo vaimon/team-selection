@@ -27,6 +27,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import ru.sfedu.teamselection.config.security.Access;
 import ru.sfedu.teamselection.config.logging.Auditable;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.RoleDto;
@@ -157,6 +158,7 @@ public class UserController {
     }
 
     @SuppressWarnings("checkstyle:ParameterNumber")
+    @PreAuthorize(Access.ADMIN)
     @GetMapping(FIND_USERS)
     @Auditable(auditPoint = "User.SearchUsers")
     public ResponseEntity<Page<UserDto>> searchUsers(
@@ -200,6 +202,7 @@ public class UserController {
         return ResponseEntity.ok("User with id: " + id + "was deleted");
     }
 
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN + " or @userService.getCurrentUser().getId().equals(#id)")
     @GetMapping(GET_USER_PHOTO)
     @Auditable(auditPoint = "User.GetPhoto")
     public ResponseEntity<byte[]> getPhoto(

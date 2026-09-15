@@ -29,6 +29,7 @@ import ru.sfedu.teamselection.service.PhotoService;
 import ru.sfedu.teamselection.service.UserService;
 import ru.sfedu.teamselection.service.audit.AuditService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
+import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
 
 /**
@@ -49,6 +50,8 @@ public class UserControllerTest {
     private Oauth2UserService oauth2UserService;
     @MockitoBean
     private AzureOidcUserService azureOidcUserService;
+    @MockitoBean
+    private CurrentAuthoritiesResolver currentAuthoritiesResolver;
 
     @MockitoBean
     private AuditService auditService;
@@ -268,5 +271,19 @@ public class UserControllerTest {
                         .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin)))
                 .andExpect(status().isOk())
                 .andExpect(content().contentType(MediaType.IMAGE_PNG));
+    }
+
+    // access matrix, vaimon/team-selection#7
+
+    @Test
+    public void userListWithEmailsIsAdminOnly() throws Exception {
+        User participant = User.builder()
+                .id(3L).fio("P").email("p@sfedu.ru").isEnabled(true)
+                .role(Role.builder().id(4L).name("ROLE_PARTICIPANT").build())
+                .build();
+
+        mockMvc.perform(org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get(UserController.FIND_USERS)
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(participant)))
+                .andExpect(org.springframework.test.web.servlet.result.MockMvcResultMatchers.status().isForbidden());
     }
 }

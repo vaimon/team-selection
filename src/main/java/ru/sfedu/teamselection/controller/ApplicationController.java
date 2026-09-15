@@ -15,6 +15,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import ru.sfedu.teamselection.config.security.Access;
 import ru.sfedu.teamselection.config.logging.Auditable;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.application.ApplicationCreationDto;
@@ -60,6 +62,7 @@ public class ApplicationController {
     private final UserService userService;
 
     @Operation(method = "GET", summary = "Получение списка заявок с пагинацией, сортировкой и фильтром по треку")
+    @PreAuthorize(Access.ADMIN)
     @GetMapping(FIND_ALL)
     @Auditable(auditPoint = "Application.FindAll")
     public ResponseEntity<Page<ApplicationDto>> findAll(
@@ -80,6 +83,7 @@ public class ApplicationController {
             method = "POST",
             summary = "Создание заявки"
     )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @PostMapping(CREATE_APPLICATION)
     @Auditable(auditPoint = "Application.CreateApplication")
     public ResponseEntity<ApplicationCreationDto> createApplication(@RequestBody ApplicationCreationDto application) {
@@ -97,6 +101,7 @@ public class ApplicationController {
             method = "PUT",
             summary = "Обновление статуса заявки"
     )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @PutMapping(UPDATE_APPLICATION)
     @Auditable(auditPoint = "Application.Update")
     public ResponseEntity<ApplicationCreationDto> update(
@@ -116,6 +121,7 @@ public class ApplicationController {
                     @Parameter(name = "id", description = "id заявки", in = ParameterIn.PATH),
             }
     )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(FIND_BY_ID)
     @Auditable(auditPoint = "Application.FindById")
     public ResponseEntity<ApplicationCreationDto> findById(@PathVariable(name = "id") Long applicationId) {
@@ -149,6 +155,7 @@ public class ApplicationController {
                     @Parameter(name = "studentId", description = "id студента", in = ParameterIn.PATH)
             }
     )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(FIND_BY_TEAM_AND_STUDENT)
     @Auditable(auditPoint = "Application.FindByTeamAndStudent")
     public ResponseEntity<ApplicationResponseDto> findByTeamAndStudent(

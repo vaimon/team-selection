@@ -32,6 +32,7 @@ import ru.sfedu.teamselection.service.TeamService;
 import ru.sfedu.teamselection.service.UserService;
 import ru.sfedu.teamselection.service.audit.AuditService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
+import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -65,6 +66,8 @@ public class StudentControllerTest {
     private Oauth2UserService oauth2UserService;
     @MockitoBean
     private AzureOidcUserService azureOidcUserService;
+    @MockitoBean
+    private CurrentAuthoritiesResolver currentAuthoritiesResolver;
 
     @MockitoBean
     private TeamDtoMapper teamDtoMapper;
@@ -85,13 +88,22 @@ public class StudentControllerTest {
             .role(Role.builder().id(3L).name("ROLE_ADMIN").build())
             .build();
 
+    // signed in, but no questionnaire for the current selection yet
+    private final User studentWithoutQuestionnaire = User.builder()
+            .id(5L)
+            .fio("New Comer")
+            .email("new@sfedu.ru")
+            .isEnabled(true)
+            .role(Role.builder().id(4L).name("ROLE_STUDENT").build())
+            .build();
+
     private final User genericStudentUser = User.builder()
             .id(2L)
             .fio("A B C")
             .email("example@.com")
             .isEnabled(true)
             .isRemindEnabled(true)
-            .role(Role.builder().id(1L).name("ROLE_STUDENT").build())
+            .role(Role.builder().id(1L).name("ROLE_PARTICIPANT").build()) // filled the questionnaire
             .build();
 
     private final Student genericStudent = Student.builder()
@@ -162,21 +174,21 @@ public class StudentControllerTest {
 
         mockMvc.perform(get(StudentController.FIND_ALL)
                         .with(SecurityMockMvcRequestPostProcessors.csrf())
-                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin)))
                 .andExpect(status().isOk());
     }
 
     @Test
     public void createStudent() throws Exception {
-        Mockito.doReturn(genericStudent).when(studentService).create(Mockito.notNull());
+        Mockito.doReturn(genericStudent).when(studentService).create(Mockito.notNull(), Mockito.any());
 
         String student = """
                 {
-                    "course": -1,
+                    "course": 1,
                     "group_number": 2,
                     "about_self": "о себе",
                     "contacts": "телефонный номер",
-                    "userId": 2
+                    "user_id": 2
                 }""";
 
         mockMvc.perform(post(StudentController.CREATE_STUDENT)
@@ -362,5 +374,68 @@ public class StudentControllerTest {
                         .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
                 .andExpect(status().isOk())
                 .andDo(print());
+    }
+
+    // access matrix, vaimon/team-selection#7
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "/api/v1/students/1", "/api/v1/students/search", "/api/v1/students/filters",
+            "/api/v1/students/1/teams", "/api/v1/students/available?track_id=1&team_id=1"
+    })
+    public void studentWithoutQuestionnaireCannotReadStudentData(String url) throws Exception {
+        mockMvc.perform(get(url)
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(studentWithoutQuestionnaire)))
+                .andExpect(status().isForbidden());
+    }
+
+    @ParameterizedTest
+    @org.junit.jupiter.params.provider.ValueSource(strings = {
+            "/api/v1/students", "/api/v1/students/export/csv?trackId=1", "/api/v1/students/export/excel?trackId=1"
+    })
+    public void participantCannotListAllStudentsOrExport(String url) throws Exception {
+        mockMvc.perform(get(url)
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
+                .andExpect(status().isForbidden());
+    }
+
+    @Test
+    public void studentWithoutQuestionnaireCanSeeTheirOwnStatusAndRegister() throws Exception {
+        Mockito.doReturn(genericStudent).when(studentService).create(Mockito.notNull(), Mockito.any());
+
+        mockMvc.perform(get(StudentController.GET_STUDENT_ID_BY_CURRENT_USER)
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(studentWithoutQuestionnaire)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post(StudentController.CREATE_STUDENT)
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(studentWithoutQuestionnaire))
+                        .content("{\"course\": 1, \"contacts\": \"tg @new\", \"user_id\": 5}")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk());
+    }
+
+    @Test
+    public void registrationWithoutContactReturns400() throws Exception {
+        mockMvc.perform(post(StudentController.CREATE_STUDENT)
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(studentWithoutQuestionnaire))
+                        .content("{\"course\": 1, \"contacts\": \" \", \"user_id\": 5}")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        Mockito.verify(studentService, Mockito.never()).create(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    public void registrationForSomeoneElseReturns403() throws Exception {
+        Mockito.doThrow(new ru.sfedu.teamselection.exception.ForbiddenException("только за себя"))
+                .when(studentService).create(Mockito.notNull(), Mockito.any());
+
+        mockMvc.perform(post(StudentController.CREATE_STUDENT)
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(studentWithoutQuestionnaire))
+                        .content("{\"course\": 1, \"contacts\": \"tg\", \"user_id\": 2}")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isForbidden());
     }
 }

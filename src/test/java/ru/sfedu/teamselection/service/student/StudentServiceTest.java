@@ -33,10 +33,13 @@ import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.StudentUpdateDto;
 import ru.sfedu.teamselection.dto.StudentUpdateTeamDto;
 import ru.sfedu.teamselection.dto.StudentUpdateUserDto;
+import ru.sfedu.teamselection.dto.TechnologyDto;
 import ru.sfedu.teamselection.dto.student.StudentCreationDto;
 import ru.sfedu.teamselection.dto.student.StudentSearchOptionsDto;
 import ru.sfedu.teamselection.enums.TrackType;
 import ru.sfedu.teamselection.exception.ConstraintViolationException;
+import ru.sfedu.teamselection.exception.BusinessException;
+import ru.sfedu.teamselection.exception.ForbiddenException;
 import ru.sfedu.teamselection.mapper.TechnologyMapper;
 import ru.sfedu.teamselection.repository.StudentRepository;
 import ru.sfedu.teamselection.repository.TeamRepository;
@@ -123,10 +126,38 @@ class StudentServiceTest extends BasicTestContainerTest {
 
     @Test
     @Transactional
+    void createForAnotherUserShouldFail() {
+        StudentCreationDto dto = StudentCreationDto.builder().course(1).contacts("tg").userId(21L).build();
+
+        Assertions.assertThrows(ForbiddenException.class, () -> underTest.create(dto, userService.findByIdOrElseThrow(3L)));
+    }
+
+    @Test
+    @Transactional
+    void createByAdminShouldFailAndKeepTheAdminRole() {
+        StudentCreationDto dto = StudentCreationDto.builder().course(1).contacts("tg").userId(1L).build();
+
+        Assertions.assertThrows(BusinessException.class, () -> underTest.create(dto, userService.findByIdOrElseThrow(1L)));
+        Assertions.assertEquals("ADMIN", userService.findByIdOrElseThrow(1L).getRole().getName());
+    }
+
+    @Test
+    @Transactional
+    void createStoresTechnologiesFromTheQuestionnaire() {
+        Student actual = underTest.create(StudentCreationDto.builder()
+                .course(1).contacts("tg").userId(21L)
+                .technologies(List.of(new TechnologyDto().id(1L), new TechnologyDto().id(2L)))
+                .build(), userService.findByIdOrElseThrow(21L));
+
+        Assertions.assertEquals(2, actual.getTechnologies().size());
+    }
+
+    @Test
+    @Transactional
     void createJoinsTheCurrentSelectionWhateverTrackIsSent() {
         Student actual = underTest.create(StudentCreationDto.builder()
                 .course(1).groupNumber(1).contacts("tg").userId(21L).trackId(2L)
-                .build());
+                .build(), userService.findByIdOrElseThrow(21L));
 
         Assertions.assertEquals(trackService.getActive().getId(), actual.getCurrentTrack().getId());
     }
@@ -139,7 +170,7 @@ class StudentServiceTest extends BasicTestContainerTest {
 
         Student actual = underTest.create(StudentCreationDto.builder()
                 .course(2).groupNumber(3).contacts("tg @returning").userId(3L)
-                .build());
+                .build(), userService.findByIdOrElseThrow(3L));
 
         Assertions.assertFalse(actual.getTeams().isEmpty(), "the lifetime students row is reused");
         Assertions.assertEquals(next.getId(), actual.getCurrentTrack().getId());
@@ -157,7 +188,7 @@ class StudentServiceTest extends BasicTestContainerTest {
     void createAgainInTheSameSelectionOnlyUpdatesTheQuestionnaire() {
         Student actual = underTest.create(StudentCreationDto.builder()
                 .course(1).groupNumber(7).contacts("tg @updated").userId(3L)
-                .build());
+                .build(), userService.findByIdOrElseThrow(3L));
 
         Assertions.assertFalse(actual.getTeams().isEmpty(), "the lifetime students row is reused");
         Assertions.assertEquals("tg @updated", actual.getContacts());
@@ -177,7 +208,7 @@ class StudentServiceTest extends BasicTestContainerTest {
                 .trackId(1L)
                 .build();
 
-        Student actual = underTest.create(studentDto);
+        Student actual = underTest.create(studentDto, userService.findByIdOrElseThrow(21L));
 
         Assertions.assertEquals(studentDto.getAboutSelf(), actual.getAboutSelf());
         Assertions.assertEquals(studentDto.getContacts(), actual.getContacts());

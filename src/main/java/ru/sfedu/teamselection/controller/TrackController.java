@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import ru.sfedu.teamselection.config.security.Access;
 import ru.sfedu.teamselection.api.TrackApi;
 import ru.sfedu.teamselection.config.logging.Auditable;
 import ru.sfedu.teamselection.dto.track.NewSelectionDto;
@@ -33,6 +34,7 @@ public class TrackController implements TrackApi {
 
     private static final Logger LOGGER = Logger.getLogger(TrackController.class.getName());
 
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @Override
     @Auditable(auditPoint = "Track.FindAll")
     public ResponseEntity<List<TrackDto>> findAllTracks() {
@@ -40,6 +42,7 @@ public class TrackController implements TrackApi {
         return ResponseEntity.ok(trackService.findAll());
     }
 
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @Override
     @Auditable(auditPoint = "Track.FindById")
     public ResponseEntity<TrackDto> findTrackById(@PathVariable(name = "trackId") Long trackId) {

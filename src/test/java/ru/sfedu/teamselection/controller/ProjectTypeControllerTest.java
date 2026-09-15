@@ -23,6 +23,7 @@ import ru.sfedu.teamselection.mapper.ProjectTypeMapper;
 import ru.sfedu.teamselection.repository.ProjectTypeRepository;
 import ru.sfedu.teamselection.service.audit.AuditService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
+import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
@@ -43,6 +44,8 @@ public class ProjectTypeControllerTest {
     private Oauth2UserService oauth2UserService;
     @MockitoBean
     private AzureOidcUserService azureOidcUserService;
+    @MockitoBean
+    private CurrentAuthoritiesResolver currentAuthoritiesResolver;
 
     @MockitoBean
     private AuditService auditService;
