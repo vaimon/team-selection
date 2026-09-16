@@ -126,7 +126,7 @@ public class StudentExportService {
             // Заголовки
             String[] headers = {
                     "ID", "ФИО", "Email", "Курс", "Группа",
-                    "В команде", "Капитан", "Трек", "Команда", "Контакты"
+                    "В команде", "Тимлид", "Трек", "Команда", "Контакты"
             };
             XSSFRow headerRow = sheet.createRow(0);
             for (int i = 0; i < headers.length; i++) {

@@ -3,7 +3,6 @@ package ru.sfedu.teamselection.service.security;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -23,14 +22,12 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import ru.sfedu.teamselection.domain.Role;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.exception.ForbiddenException;
-import ru.sfedu.teamselection.repository.RoleRepository;
-import ru.sfedu.teamselection.repository.UserRepository;
+import ru.sfedu.teamselection.service.UserService;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -39,11 +36,7 @@ import static org.mockito.Mockito.when;
 class AzureOidcUserServiceTest {
 
     @Mock
-    private UserRepository userRepository;
-
-    @Mock
-    private RoleRepository roleRepository;
-
+    private UserService userService;
 
     @Mock
     private Oauth2UserService oauth2UserService;
@@ -53,7 +46,7 @@ class AzureOidcUserServiceTest {
 
     @BeforeEach
     void setUp() {
-        underTest = new AzureOidcUserService(userRepository, roleRepository);
+        underTest = new AzureOidcUserService(userService);
 
         underTest.setOauth2UserService(oauth2UserService);
     }
@@ -99,8 +92,8 @@ class AzureOidcUserServiceTest {
                 .role(userRole)
                 .build();
 
-        when(userRepository.findByEmailFetchRole("john.doe@example.com"))
-                .thenReturn(Optional.of(existingUser));
+        when(userService.findOrCreateByEmail("john.doe@example.com", "John Doe", "azure-oid-123"))
+                .thenReturn(existingUser);
 
         // When
         OidcUser result = underTest.loadUser(userRequest);
@@ -123,8 +116,6 @@ class AzureOidcUserServiceTest {
         Assertions.assertEquals("john.doe@example.com", result.getAttribute("email"));
         Assertions.assertEquals("John Doe", result.getAttribute("name"));
         Assertions.assertEquals("azure-oid-123", result.getAttribute("oid"));
-
-        verify(userRepository, never()).save(any(User.class));
     }
 
     @Test
@@ -163,11 +154,7 @@ class AzureOidcUserServiceTest {
                 .role(defaultRole)
                 .build();
 
-        when(userRepository.findByEmailFetchRole("john.doe@example.com"))
-                .thenReturn(Optional.empty());
-        when(roleRepository.findById(1L))
-                .thenReturn(Optional.of(defaultRole));
-        when(userRepository.save(any(User.class)))
+        when(userService.findOrCreateByEmail("john.doe@example.com", "John Doe", "azure-oid-123"))
                 .thenReturn(newUser);
 
         // When
@@ -177,8 +164,7 @@ class AzureOidcUserServiceTest {
         assertThat(result).isInstanceOf(DefaultOidcUser.class);
 
         // Verify user creation
-        verify(userRepository).save(any(User.class));
-        verify(roleRepository).findById(1L);
+        verify(userService).findOrCreateByEmail("john.doe@example.com", "John Doe", "azure-oid-123");
 
         // Verify authorities include role
         assertThat(result.getAuthorities())
@@ -221,8 +207,8 @@ class AzureOidcUserServiceTest {
                 .role(userRole)
                 .build();
 
-        when(userRepository.findByEmailFetchRole("john.doe@example.com"))
-                .thenReturn(Optional.of(disabledUser));
+        when(userService.findOrCreateByEmail("john.doe@example.com", "John Doe", "azure-oid-123"))
+                .thenReturn(disabledUser);
 
         // When & Then
         ForbiddenException exception = assertThrows(ForbiddenException.class,
@@ -232,39 +218,6 @@ class AzureOidcUserServiceTest {
                 .isEqualTo("Аккаунт отключен. По вопросам возвращения доступа обращаться к администратору ресурса.");
     }
 
-    @Test
-    void loadUser_shouldThrowExceptionWhenDefaultRoleNotFound() {
-        // Given
-        OidcUserRequest userRequest = createMockUserRequest();
-        var user = spy(User.builder()
-                .id(1L)
-                .fio("John Doe")
-                .email("john.doe@example.com")
-                .role(Role.builder().id(1L).name("USER").build())
-                .build());
-        Map<String, Object> attributes = new HashMap<>();
-        attributes.put("email", "john.doe@example.com");
-        attributes.put("name", "John Doe");
-        attributes.put("oid", "azure-oid-123");
-        attributes.put("sub", "sub");
-        doReturn(
-                attributes
-        ).when(user).getAttributes();
-        doReturn(
-                user
-        ).when(oauth2UserService).loadUser(any());
-
-        when(userRepository.findByEmailFetchRole("john.doe@example.com"))
-                .thenReturn(Optional.empty());
-        when(roleRepository.findById(1L))
-                .thenReturn(Optional.empty());
-
-        // When & Then
-        assertThrows(RuntimeException.class,
-                () -> underTest.loadUser(userRequest));
-
-        verify(userRepository, never()).save(any(User.class));
-    }
 //
 //    @Test
 //    void loadUser_shouldHandleNullOidcUserAttributesGracefully() {

@@ -3,6 +3,7 @@ package ru.sfedu.teamselection.service;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
@@ -31,6 +32,9 @@ import ru.sfedu.teamselection.service.student.update.StudentUpdateFactory;
 @RequiredArgsConstructor
 @Service
 public class UserService {
+    /** Роль USER: её получает всякий, кто впервые вошёл. Модель ролей меняется в vaimon/team-selection#17. */
+    private static final Long DEFAULT_ROLE_ID = 1L;
+
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
     private final StudentRepository studentRepository;
@@ -71,6 +75,33 @@ public class UserService {
     public User findByUsername(String username) {
         return userRepository.findByFio(username)
                 .orElseThrow(() -> new NotFoundException("Пользователь с именем `" + username + "` не найден"));
+    }
+
+    /**
+     * Возвращает пользователя с этой почтой, создавая его при первом входе.
+     *
+     * <p>Метод намеренно без {@code @Transactional}: при двух одновременных первых входах одного
+     * человека вставка падает на unique-индексе, а перечитать строку внутри той же транзакции уже
+     * нельзя — она помечена rollback-only. Без внешней транзакции каждый вызов репозитория идёт
+     * своей, поэтому перечитывание срабатывает.
+     */
+    public User findOrCreateByEmail(String email, String fio, String azureId) {
+        return userRepository.findByEmailFetchRole(email)
+                .orElseGet(() -> createOnFirstLogin(email, fio, azureId));
+    }
+
+    private User createOnFirstLogin(String email, String fio, String azureId) {
+        try {
+            return userRepository.save(User.builder()
+                    .fio(fio)
+                    .email(email)
+                    .isEnabled(true)
+                    .role(roleRepository.findById(DEFAULT_ROLE_ID).orElseThrow())
+                    .azureId(azureId)
+                    .build());
+        } catch (DataIntegrityViolationException alreadyCreated) {
+            return userRepository.findByEmailFetchRole(email).orElseThrow();
+        }
     }
 
     public Role findRoleByNameOrElseThrow(String roleName) {

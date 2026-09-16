@@ -13,6 +13,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.NoHandlerFoundException;
 import ru.sfedu.teamselection.dto.ErrorResponse;
 import ru.sfedu.teamselection.exception.BusinessException;
 import ru.sfedu.teamselection.exception.ForbiddenException;
@@ -24,6 +25,17 @@ public class ApiExceptionHandler {
     @ExceptionHandler(NoSuchElementException.class)
     public ResponseEntity<ErrorResponse> handleNotFound(
             NoSuchElementException ex, HttpServletRequest req
+    ) {
+        return buildResponse(HttpStatus.NOT_FOUND, ex, req);
+    }
+
+    /**
+     * Обращение по несуществующему адресу. Без этого обработчика оно доходило до catch-all ниже и
+     * возвращалось как 500 с текстом «No endpoint GET /api/v1/tracks.» — фронту нечего с этим делать.
+     */
+    @ExceptionHandler(NoHandlerFoundException.class)
+    public ResponseEntity<ErrorResponse> handleUnknownRoute(
+            NoHandlerFoundException ex, HttpServletRequest req
     ) {
         return buildResponse(HttpStatus.NOT_FOUND, ex, req);
     }
@@ -72,12 +84,22 @@ public class ApiExceptionHandler {
                 .build());
     }
 
+    /**
+     * Всё, что сюда дошло, — наша ошибка, а не клиента: текст исключения идёт в лог целиком,
+     * клиенту уходит нейтральное сообщение, чтобы наружу не утекали детали внутренностей.
+     */
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleServerError(
             Exception ex, HttpServletRequest req
     ) {
-        log.error(ex.getMessage());
-        return buildResponse(HttpStatus.INTERNAL_SERVER_ERROR, ex, req);
+        log.error("Unhandled exception on {} {}", req.getMethod(), req.getRequestURI(), ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(ErrorResponse.builder()
+                .timestamp(OffsetDateTime.now().toString())
+                .status(HttpStatus.INTERNAL_SERVER_ERROR.value())
+                .error(HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase())
+                .message("Внутренняя ошибка сервера")
+                .path(req.getRequestURI())
+                .build());
     }
 
     private ResponseEntity<ErrorResponse> buildResponse(

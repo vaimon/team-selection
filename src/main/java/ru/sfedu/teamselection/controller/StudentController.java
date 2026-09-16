@@ -153,7 +153,7 @@ public class StudentController {
                 @Parameter(name = "course", description = "Курс обучения", in = ParameterIn.QUERY),
                 @Parameter(name = "group_number", description = "Номер группы", in = ParameterIn.QUERY),
                 @Parameter(name = "has_team", description = "Состоит ли в команде", in = ParameterIn.QUERY),
-                @Parameter(name = "is_captain", description = "Является ли капитаном", in = ParameterIn.QUERY),
+                @Parameter(name = "is_captain", description = "Является ли тимлидом", in = ParameterIn.QUERY),
                 @Parameter(name = "technologies", description = "Список ID технологий", in = ParameterIn.QUERY),
                 @Parameter(name = "page", description = "Номер страницы", example = "0", in = ParameterIn.QUERY),
                 @Parameter(name = "size", description = "Размер страницы", example = "10", in = ParameterIn.QUERY),

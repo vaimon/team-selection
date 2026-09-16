@@ -250,7 +250,7 @@ public class TeamService {
     public Team removeStudentFromTeam(Team team, Student student) {
         trackService.assertWritable(team.getCurrentTrack());
         if (team.getCaptainId().equals(student.getId())) {
-            throw new ConstraintViolationException("Нельзя удалить капитана из собственной команды");
+            throw new ConstraintViolationException("Нельзя удалить тимлида из собственной команды");
         }
         team.getStudents().removeIf(s -> s.getId().equals(student.getId()));
 
@@ -292,7 +292,7 @@ public class TeamService {
                 .equals(studentService.findByIdOrElseThrow(team.getCaptainId()).getUser().getId());
 
         if (!isAdmin && !isCaptain) {
-            throw new ForbiddenException("Операция доступна только для капитана команды или администратора");
+            throw new ForbiddenException("Операция доступна только для тимлида команды или администратора");
         }
         trackService.assertWritable(team.getCurrentTrack());
 

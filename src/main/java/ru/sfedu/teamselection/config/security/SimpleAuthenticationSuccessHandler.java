@@ -1,6 +1,5 @@
 package ru.sfedu.teamselection.config.security;
 
-import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
@@ -11,9 +10,7 @@ import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.web.DefaultRedirectStrategy;
 import org.springframework.security.web.RedirectStrategy;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
-import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.stereotype.Component;
-import org.springframework.web.util.WebUtils;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.security.core.GrantedAuthority;
@@ -30,34 +27,17 @@ public class SimpleAuthenticationSuccessHandler extends SimpleUrlAuthenticationS
 
     private final CurrentAuthoritiesResolver currentAuthoritiesResolver;
 
-    @SuppressWarnings("checkstyle:MagicNumber")
     @Override
     public void onAuthenticationSuccess(
             HttpServletRequest request,
             HttpServletResponse response,
             Authentication authentication) throws IOException {
-        //var oAuth2User = (OAuth2User) authentication.getPrincipal();
+        // The session cookie is the container's business: it was hand-written here as JSESSIONID plus
+        // a second copy named SessionId that nothing ever read, which also overrode the cookie
+        // attributes configured for the server (SameSite among them) and turned a session cookie into
+        // a week-long one.
         OAuth2User oidcUser = (OAuth2User) authentication.getPrincipal();
         String email = oidcUser.getAttribute("email");  // или preferred_username
-
-        String sessionId = ((WebAuthenticationDetails) authentication.getDetails()).getSessionId();
-
-        Cookie sessionCookie = new Cookie("SessionId", sessionId);
-        sessionCookie.setHttpOnly(true);
-        sessionCookie.setSecure(true);
-        sessionCookie.setPath("/");
-        sessionCookie.setMaxAge(7 * 24 * 60 * 60);
-        response.addCookie(sessionCookie);
-
-        Cookie jSessionIdCookie = WebUtils.getCookie(request, "JSESSIONID");
-        if (jSessionIdCookie == null) {
-            jSessionIdCookie = new Cookie("JSESSIONID", request.getSession().getId());
-            jSessionIdCookie.setHttpOnly(true);
-            jSessionIdCookie.setSecure(true);
-            jSessionIdCookie.setPath("/");
-            jSessionIdCookie.setMaxAge(7 * 24 * 60 * 60);
-            response.addCookie(jSessionIdCookie);
-        }
 
         redirectStrategy.sendRedirect(request, response, frontendUrl + targetPath(email));
     }

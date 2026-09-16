@@ -6,6 +6,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ActiveProfiles;
@@ -297,5 +298,45 @@ class UserServiceTest extends BasicTestContainerTest {
         Assertions.assertEquals(expected.getId(), actual.getId());
         Assertions.assertEquals(expected.getFio(), actual.getFio());
         Assertions.assertEquals(expected.getEmail(), actual.getEmail());
+    }
+
+    @Test
+    void firstLoginCreatesTheUser() {
+        User created = underTest.findOrCreateByEmail("New.Person@sfedu.ru", "New Person", "oid-42");
+
+        Assertions.assertNotNull(created.getId());
+        Assertions.assertEquals("New.Person@sfedu.ru", created.getEmail());
+        Assertions.assertEquals("New Person", created.getFio());
+        Assertions.assertTrue(created.getIsEnabled());
+        Assertions.assertNotNull(created.getRole());
+    }
+
+    /**
+     * Azure returns the address as it is written in the profile, so the same person can arrive as
+     * Ivan.Ivanov@sfedu.ru today and ivan.ivanov@sfedu.ru tomorrow — still one account.
+     */
+    @Test
+    void loginFindsTheSameUserWhateverTheCasing() {
+        User created = underTest.findOrCreateByEmail("Person.Two@sfedu.ru", "Person Two", "oid-43");
+
+        User found = underTest.findOrCreateByEmail("person.TWO@SFEDU.ru", "Person Two", "oid-43");
+
+        Assertions.assertEquals(created.getId(), found.getId());
+        Assertions.assertEquals(1, userRepository.findAll().stream()
+                .filter(user -> "person.two@sfedu.ru".equalsIgnoreCase(user.getEmail()))
+                .count());
+    }
+
+    @Test
+    void aSecondUserWithTheSameEmailIsRefused() {
+        User existing = underTest.findOrCreateByEmail("Person.Three@sfedu.ru", "Person Three", null);
+
+        Assertions.assertThrows(DataIntegrityViolationException.class, () ->
+                userRepository.saveAndFlush(User.builder()
+                        .fio("Другой человек")
+                        .email("PERSON.THREE@sfedu.ru")
+                        .isEnabled(true)
+                        .role(existing.getRole())
+                        .build()));
     }
 }

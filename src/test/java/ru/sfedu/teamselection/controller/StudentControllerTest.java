@@ -231,6 +231,7 @@ public class StudentControllerTest {
                 }""";
 
         mockMvc.perform(put(StudentController.UPDATE_STUDENT, genericStudent.getId())
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
                         .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin))
                         .content(student)
                         .contentType(MediaType.APPLICATION_JSON))
