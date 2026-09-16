@@ -150,7 +150,7 @@ public class ApplicationService {
             throw new ForbiddenException(((ValidationResult.Forbidden) validationResult).message);
         }
         var app = applicationMapper.mapCreationToEntity(dto);
-        app.setStatus(SENT.name());
+        app.setStatus(SENT);
         app.setStudent(studentService.findByIdOrElseThrow(dto.getStudentId()));
         app.setTeam(teamService.findByIdOrElseThrow(dto.getTeamId()));
         return applicationRepository.save(app);
@@ -178,25 +178,23 @@ public class ApplicationService {
     }
 
     private Application accept(Application app, User sender) {
-        teamService.addStudentToTeam(app.getTeam(), app.getStudent(), false);
-        app.setStatus(ACCEPTED.name());
-        applicationRepository.updateStatusByTeam(ApplicationStatus.CANCELLED.name(), app.getTeam());
-        applicationRepository.updateStatusByStudent(ApplicationStatus.CANCELLED.name(), app.getStudent());
+        teamService.addStudentToTeam(app.getTeam(), app.getStudent(), false, app.getId());
+        app.setStatus(ACCEPTED);
         return app;
     }
 
     private Application reject(Application app, User sender) {
-        app.setStatus(REJECTED.name());
+        app.setStatus(REJECTED);
         return app;
     }
 
     private Application cancel(Application app, User sender) {
-        app.setStatus(CANCELLED.name());
+        app.setStatus(CANCELLED);
         return app;
     }
 
     private Application resend(Application app, User sender) {
-        app.setStatus(SENT.name());
+        app.setStatus(SENT);
         return app;
     }
 

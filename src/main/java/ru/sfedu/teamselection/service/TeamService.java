@@ -152,7 +152,7 @@ public class TeamService {
 
         Student captain = studentService.findByIdOrElseThrow(dto.getCaptainId());
         if (captain.getCurrentTrack() == null || !Objects.equals(captain.getCurrentTrack().getId(), trackId)) {
-            throw new BusinessException("Чтобы создать команду, сначала заполните анкету участника текущего отбора");
+            throw new BusinessException("Чтобы создать команду, сначала заполните анкету участника текущего набора");
         }
         addStudentToTeam(team, captain, false);
         team.setCaptainId(captain.getId());
@@ -199,17 +199,30 @@ public class TeamService {
 
     /**
      * Adds a member, capped per year by the team's effective targets.
+     * Cancels every pending application of the student, none of them excluded.
      * @param skipRestrictions admin add: the per-year cap is not applied
      */
     @Transactional
     public Team addStudentToTeam(Team team, Student student, Boolean skipRestrictions) {
+        return addStudentToTeam(team, student, skipRestrictions, null);
+    }
+
+    /**
+     * Adds a member, capped per year by the team's effective targets.
+     * Joining closes the student's own pending applications — they became impossible, whatever
+     * brought the student in: an accepted application, an admin move or a join link.
+     * @param skipRestrictions admin add: the per-year cap is not applied
+     * @param exceptApplicationId application the join came from, left for the caller to accept
+     */
+    @Transactional
+    public Team addStudentToTeam(Team team, Student student, Boolean skipRestrictions, Long exceptApplicationId) {
         trackService.assertWritable(team.getCurrentTrack());
         if (student.getHasTeam()) {
             throw new ConstraintViolationException("Студент уже состоит в команде");
         }
         if (student.getCurrentTrack() == null
                 || !Objects.equals(student.getCurrentTrack().getId(), team.getCurrentTrack().getId())) {
-            throw new ConstraintViolationException("Студент не участвует в текущем отборе");
+            throw new ConstraintViolationException("Студент не участвует в текущем наборе");
         }
         // не дублируем участника
         if (team.getStudents().stream()
@@ -225,7 +238,10 @@ public class TeamService {
         student.setHasTeam(true);
         student.setCurrentTeam(team);
         for (Application application: student.getApplications()) {
-            application.setStatus(ApplicationStatus.REJECTED.name());
+            if (application.status() == ApplicationStatus.SENT
+                    && !Objects.equals(application.getId(), exceptApplicationId)) {
+                application.setStatus(ApplicationStatus.CANCELLED);
+            }
         }
         return team;
     }
@@ -280,7 +296,7 @@ public class TeamService {
         }
         trackService.assertWritable(team.getCurrentTrack());
 
-        // Только admin может менять эти поля (трек команды не меняется: отборы изолированы):
+        // Только admin может менять эти поля (трек команды не меняется: наборы изолированы):
         if (isAdmin) {
             if (!Objects.equals(team.getCaptainId(), dto.getCaptainId())) {
                 Student oldCaptain = studentService.findByIdOrElseThrow(team.getCaptainId());

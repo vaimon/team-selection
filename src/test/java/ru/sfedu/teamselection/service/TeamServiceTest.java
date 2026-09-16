@@ -30,9 +30,11 @@ import ru.sfedu.teamselection.dto.TechnologyDto;
 import ru.sfedu.teamselection.dto.team.TeamCreationDto;
 import ru.sfedu.teamselection.dto.team.TeamSearchOptionsDto;
 import ru.sfedu.teamselection.dto.team.TeamUpdateDto;
+import ru.sfedu.teamselection.enums.ApplicationStatus;
 import ru.sfedu.teamselection.exception.BusinessException;
 import ru.sfedu.teamselection.exception.ConstraintViolationException;
 import ru.sfedu.teamselection.exception.ForbiddenException;
+import ru.sfedu.teamselection.repository.ApplicationRepository;
 import ru.sfedu.teamselection.repository.StudentRepository;
 import ru.sfedu.teamselection.repository.TeamRepository;
 
@@ -55,6 +57,9 @@ class TeamServiceTest extends BasicTestContainerTest {
 
     @Autowired
     private StudentRepository studentRepository;
+
+    @Autowired
+    private ApplicationRepository applicationRepository;
 
     private User getAdmin() {
         return userService.findByIdOrElseThrow(1L);
@@ -511,5 +516,37 @@ class TeamServiceTest extends BasicTestContainerTest {
         List<Team> actual = underTest.getTeamHistoryForStudent(9L);
 
         Assertions.assertEquals(0, actual.size());
+    }
+
+    @Test
+    @Sql(statements = """
+            INSERT INTO applications
+                (id, team_id, student_id, status, type)
+            VALUES
+                (130, 2, 7, 'sent', 'request'),
+                (131, 4, 7, 'sent', 'invite'),
+                (132, 3, 7, 'rejected', 'request');
+            """,
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    @Sql(statements = """
+            DELETE FROM applications
+            WHERE id IN (130, 131, 132);
+            """,
+            executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void addStudentToTeamCancelsTheirPendingApplications() {
+        underTest.addStudentToTeam(1L, 7L, getAdmin());
+
+        Assertions.assertEquals(
+                ApplicationStatus.CANCELLED,
+                applicationRepository.findById(130L).orElseThrow().status()
+        );
+        Assertions.assertEquals(
+                ApplicationStatus.CANCELLED,
+                applicationRepository.findById(131L).orElseThrow().status()
+        );
+        Assertions.assertEquals(
+                ApplicationStatus.REJECTED,
+                applicationRepository.findById(132L).orElseThrow().status()
+        );
     }
 }

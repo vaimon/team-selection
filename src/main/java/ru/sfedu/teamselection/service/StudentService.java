@@ -154,7 +154,7 @@ public class StudentService {
         User user = userService.findByIdOrElseThrow(dto.getUserId());
         if ("ADMIN".equals(user.getRole().getName())) {
             // registering would silently replace the ADMIN role with STUDENT
-            throw new BusinessException("Администратор не участвует в отборе, анкета участника не нужна");
+            throw new BusinessException("Администратор не участвует в наборе, анкета участника не нужна");
         }
         var role = roleRepository.findByName("STUDENT")
                 .orElseThrow(() -> new NotFoundException("Роль STUDENT не найдена"));

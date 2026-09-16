@@ -333,7 +333,7 @@ public class TrackServiceTest extends BasicTestContainerTest {
 
         assertThatThrownBy(() -> trackService.getActive())
                 .isInstanceOf(NotFoundException.class)
-                .hasMessageContaining("Отбор не настроен");
+                .hasMessageContaining("Набор не настроен");
     }
 
     @Test
@@ -344,7 +344,7 @@ public class TrackServiceTest extends BasicTestContainerTest {
         trackRepository.saveAndFlush(previous);
 
         Track actual = trackService.startNewSelection(NewSelectionDto.builder()
-                .name("Отбор 2027")
+                .name("Набор 2027")
                 .startDate(LocalDate.of(2027, 10, 1))
                 .endDate(LocalDate.of(2027, 10, 31))
                 .build());
@@ -364,7 +364,7 @@ public class TrackServiceTest extends BasicTestContainerTest {
                 .startDate(LocalDate.of(2031, 10, 1))
                 .build());
 
-        assertThat(actual.getName()).isEqualTo("Отбор 2031");
+        assertThat(actual.getName()).isEqualTo("Набор 2031");
     }
 
     @Test
@@ -413,6 +413,6 @@ public class TrackServiceTest extends BasicTestContainerTest {
     void deleteById_whenTrackIsActive_thenThrowBusinessException() {
         assertThatThrownBy(() -> trackService.deleteById(trackService.getActive().getId()))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("текущий отбор");
+                .hasMessageContaining("текущий набор");
     }
 }

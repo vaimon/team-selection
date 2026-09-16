@@ -16,6 +16,7 @@ import ru.sfedu.teamselection.BasicTestContainerTest;
 import ru.sfedu.teamselection.TeamSelectionApplication;
 import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Team;
+import ru.sfedu.teamselection.domain.TeamComposition;
 import ru.sfedu.teamselection.domain.application.Application;
 import ru.sfedu.teamselection.domain.application.ApplicationType;
 import ru.sfedu.teamselection.domain.application.TeamInvite;
@@ -197,7 +198,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 .build();
 
         Application expected = TeamRequest.builder()
-                .status("SENT")
+                .status(ApplicationStatus.SENT.toString())
                 .student(Student.builder().id(dto.getStudentId()).build())
                 .team(Team.builder().id(dto.getTeamId()).build())
                 .build();
@@ -219,7 +220,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 .build();
 
         Application expected = TeamInvite.builder()
-                .status("SENT")
+                .status(ApplicationStatus.SENT.toString())
                 .student(Student.builder().id(dto.getStudentId()).build())
                 .team(Team.builder().id(dto.getTeamId()).build())
                 .build();
@@ -245,7 +246,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 .build();
 
         Application expected = TeamRequest.builder()
-                .status("SENT")
+                .status(ApplicationStatus.SENT.toString())
                 .student(Student.builder().id(dto.getStudentId()).build())
                 .team(Team.builder().id(dto.getTeamId()).build())
                 .build();
@@ -270,7 +271,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 .build();
 
         Application expected = TeamInvite.builder()
-                .status("SENT")
+                .status(ApplicationStatus.SENT.toString())
                 .student(Student.builder().id(dto.getStudentId()).build())
                 .team(Team.builder().id(dto.getTeamId()).build())
                 .build();
@@ -327,7 +328,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 .build();
 
         Application expected = TeamRequest.builder()
-                .status("REJECTED")
+                .status(ApplicationStatus.REJECTED.toString())
                 .student(Student.builder().id(dto.getStudentId()).build())
                 .team(Team.builder().id(dto.getTeamId()).build())
                 .build();
@@ -433,7 +434,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 .build();
 
         Application expected = TeamRequest.builder()
-                .status("REJECTED")
+                .status(ApplicationStatus.REJECTED.toString())
                 .student(Student.builder().id(dto.getStudentId()).build())
                 .team(Team.builder().id(dto.getTeamId()).build())
                 .build();
@@ -472,7 +473,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 .build();
 
         Application expected = TeamInvite.builder()
-                .status("REJECTED")
+                .status(ApplicationStatus.REJECTED.toString())
                 .student(Student.builder().id(dto.getStudentId()).build())
                 .team(Team.builder().id(dto.getTeamId()).build())
                 .build();
@@ -584,7 +585,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 .build();
 
         Application expected = TeamRequest.builder()
-                .status("ACCEPTED")
+                .status(ApplicationStatus.ACCEPTED.toString())
                 .student(Student.builder().id(dto.getStudentId()).build())
                 .team(Team.builder().id(dto.getTeamId()).build())
                 .build();
@@ -624,7 +625,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 .build();
 
         Application expected = TeamInvite.builder()
-                .status("ACCEPTED")
+                .status(ApplicationStatus.ACCEPTED.toString())
                 .student(Student.builder().id(dto.getStudentId()).build())
                 .team(Team.builder().id(dto.getTeamId()).build())
                 .build();
@@ -658,7 +659,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 .build();
 
         Application expected = TeamRequest.builder()
-                .status("ACCEPTED")
+                .status(ApplicationStatus.ACCEPTED.toString())
                 .student(Student.builder().id(dto.getStudentId()).build())
                 .team(Team.builder().id(dto.getTeamId()).build())
                 .build();
@@ -701,7 +702,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 .build();
 
         Application expected = TeamInvite.builder()
-                .status("ACCEPTED")
+                .status(ApplicationStatus.ACCEPTED.toString())
                 .student(Student.builder().id(dto.getStudentId()).build())
                 .team(Team.builder().id(dto.getTeamId()).build())
                 .build();
@@ -950,7 +951,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 .build();
 
         Application expected = TeamRequest.builder()
-                .status("CANCELLED")
+                .status(ApplicationStatus.CANCELLED.toString())
                 .student(Student.builder().id(dto.getStudentId()).build())
                 .team(Team.builder().id(dto.getTeamId()).build())
                 .build();
@@ -987,7 +988,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 .build();
 
         Application expected = TeamInvite.builder()
-                .status("CANCELLED")
+                .status(ApplicationStatus.CANCELLED.toString())
                 .student(Student.builder().id(dto.getStudentId()).build())
                 .team(Team.builder().id(dto.getTeamId()).build())
                 .build();
@@ -1029,5 +1030,317 @@ class ApplicationServiceTest extends BasicTestContainerTest {
         underTest.delete(applicationId);
 
         Assertions.assertFalse(applicationRepository.existsById(applicationId));
+    }
+
+    @Test
+    void requestCreatedThroughServiceCanBeRejected() {
+        ApplicationCreationDto creation = ApplicationCreationDto.builder()
+                .status(ApplicationStatus.SENT)
+                .studentId(4L)
+                .teamId(1L)
+                .type(ApplicationType.REQUEST)
+                .build();
+        Application created = underTest.create(creation, userRepository.findById(5L).orElseThrow());
+
+        ApplicationCreationDto rejection = ApplicationCreationDto.builder()
+                .id(created.getId())
+                .status(ApplicationStatus.REJECTED)
+                .studentId(4L)
+                .teamId(1L)
+                .type(ApplicationType.REQUEST)
+                .build();
+
+        Application actual = underTest.update(rejection, userRepository.findById(3L).orElseThrow());
+
+        Assertions.assertEquals(ApplicationStatus.REJECTED, ApplicationStatus.of(actual.getStatus()));
+    }
+
+    @Test
+    @Sql(statements = """
+            INSERT INTO applications
+                (id, team_id, student_id, status, type)
+            VALUES
+                (132, 1, 4, 'sent', 'request');
+            """,
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    @Sql(statements = """
+            DELETE FROM applications
+            WHERE id = 132;
+            """,
+            executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void acceptingRequestKeepsOtherRequestsToTheTeamPending() {
+        ApplicationCreationDto dto = ApplicationCreationDto.builder()
+                .id(5L)
+                .status(ApplicationStatus.ACCEPTED)
+                .studentId(5L)
+                .teamId(1L)
+                .type(ApplicationType.REQUEST)
+                .build();
+
+        underTest.update(dto, userRepository.findById(3L).orElseThrow());
+
+        Assertions.assertEquals(
+                ApplicationStatus.SENT,
+                applicationRepository.findById(132L).orElseThrow().status()
+        );
+    }
+
+    /**
+     * Even a team that has just become complete keeps its other requests pending — the lead
+     * decides what to do with them (vaimon/team-selection#8).
+     */
+    @Test
+    @Sql(value = {"/sql-scripts/create_almost_full_team_without_1_second_year.sql"},
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    @Sql(statements = """
+            INSERT INTO applications
+                (id, team_id, student_id, status, type)
+            VALUES
+                (133, 5, 6, 'sent', 'request'),
+                (134, 5, 11, 'sent', 'request');
+            """,
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    @Sql(statements = """
+            DELETE FROM applications
+            WHERE id IN (133, 134);
+            """,
+            executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void acceptingRequestForTheLastPlaceKeepsOtherRequestsPending() {
+        ApplicationCreationDto dto = ApplicationCreationDto.builder()
+                .id(133L)
+                .status(ApplicationStatus.ACCEPTED)
+                .studentId(6L)
+                .teamId(5L)
+                .type(ApplicationType.REQUEST)
+                .build();
+
+        Application accepted = underTest.update(dto, userRepository.findById(22L).orElseThrow());
+
+        Assertions.assertTrue(TeamComposition.of(accepted.getTeam()).complete());
+        Assertions.assertEquals(
+                ApplicationStatus.SENT,
+                applicationRepository.findById(134L).orElseThrow().status()
+        );
+    }
+
+    @Test
+    @Sql(statements = """
+            INSERT INTO applications
+                (id, team_id, student_id, status, type)
+            VALUES
+                (135, 2, 5, 'sent', 'request'),
+                (136, 3, 5, 'sent', 'invite');
+            """,
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    @Sql(statements = """
+            DELETE FROM applications
+            WHERE id IN (135, 136);
+            """,
+            executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void acceptingApplicationCancelsTheStudentsOtherApplications() {
+        ApplicationCreationDto dto = ApplicationCreationDto.builder()
+                .id(5L)
+                .status(ApplicationStatus.ACCEPTED)
+                .studentId(5L)
+                .teamId(1L)
+                .type(ApplicationType.REQUEST)
+                .build();
+
+        Application accepted = underTest.update(dto, userRepository.findById(3L).orElseThrow());
+
+        Assertions.assertEquals(ApplicationStatus.ACCEPTED, accepted.status());
+        Assertions.assertEquals(
+                ApplicationStatus.CANCELLED,
+                applicationRepository.findById(135L).orElseThrow().status()
+        );
+        Assertions.assertEquals(
+                ApplicationStatus.CANCELLED,
+                applicationRepository.findById(136L).orElseThrow().status()
+        );
+    }
+
+    @Test
+    @Sql(statements = """
+            INSERT INTO applications
+                (id, team_id, student_id, status, type)
+            VALUES
+                (137, 1, 4, 'rejected', 'request');
+            """,
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    @Sql(statements = """
+            DELETE FROM applications
+            WHERE id = 137;
+            """,
+            executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void updateRequestAcceptRejectedShouldFail() {
+        ApplicationCreationDto dto = ApplicationCreationDto.builder()
+                .id(137L)
+                .status(ApplicationStatus.ACCEPTED)
+                .studentId(4L)
+                .teamId(1L)
+                .type(ApplicationType.REQUEST)
+                .build();
+
+        Assertions.assertThrows(
+                BusinessException.class,
+                () -> underTest.update(dto, userRepository.findById(3L).orElseThrow())
+        );
+    }
+
+    @Test
+    @Sql(statements = """
+            INSERT INTO applications
+                (id, team_id, student_id, status, type)
+            VALUES
+                (138, 1, 4, 'rejected', 'invite');
+            """,
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    @Sql(statements = """
+            DELETE FROM applications
+            WHERE id = 138;
+            """,
+            executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void updateInviteAcceptRejectedShouldFail() {
+        ApplicationCreationDto dto = ApplicationCreationDto.builder()
+                .id(138L)
+                .status(ApplicationStatus.ACCEPTED)
+                .studentId(4L)
+                .teamId(1L)
+                .type(ApplicationType.INVITE)
+                .build();
+
+        Assertions.assertThrows(
+                BusinessException.class,
+                () -> underTest.update(dto, userRepository.findById(5L).orElseThrow())
+        );
+    }
+
+    @Test
+    @Sql(statements = """
+            INSERT INTO applications
+                (id, team_id, student_id, status, type)
+            VALUES
+                (139, 1, 4, 'cancelled', 'request');
+            """,
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    @Sql(statements = """
+            DELETE FROM applications
+            WHERE id = 139;
+            """,
+            executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void updateRequestResend() {
+        ApplicationCreationDto dto = ApplicationCreationDto.builder()
+                .id(139L)
+                .status(ApplicationStatus.SENT)
+                .studentId(4L)
+                .teamId(1L)
+                .type(ApplicationType.REQUEST)
+                .build();
+
+        Application actual = underTest.update(dto, userRepository.findById(5L).orElseThrow());
+
+        Assertions.assertEquals(ApplicationStatus.SENT, actual.status());
+    }
+
+    @Test
+    @Sql(statements = """
+            INSERT INTO applications
+                (id, team_id, student_id, status, type)
+            VALUES
+                (140, 1, 4, 'cancelled', 'request');
+            """,
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    @Sql(statements = """
+            DELETE FROM applications
+            WHERE id = 140;
+            """,
+            executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void updateRequestResendFromNonSenderShouldFail() {
+        ApplicationCreationDto dto = ApplicationCreationDto.builder()
+                .id(140L)
+                .status(ApplicationStatus.SENT)
+                .studentId(4L)
+                .teamId(1L)
+                .type(ApplicationType.REQUEST)
+                .build();
+
+        Assertions.assertThrows(
+                ForbiddenException.class,
+                () -> underTest.update(dto, userRepository.findById(3L).orElseThrow())
+        );
+    }
+
+    @Test
+    @Sql(statements = """
+            INSERT INTO applications
+                (id, team_id, student_id, status, type)
+            VALUES
+                (141, 1, 4, 'rejected', 'invite');
+            """,
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    @Sql(statements = """
+            DELETE FROM applications
+            WHERE id = 141;
+            """,
+            executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void updateInviteResend() {
+        ApplicationCreationDto dto = ApplicationCreationDto.builder()
+                .id(141L)
+                .status(ApplicationStatus.SENT)
+                .studentId(4L)
+                .teamId(1L)
+                .type(ApplicationType.INVITE)
+                .build();
+
+        Application actual = underTest.update(dto, userRepository.findById(3L).orElseThrow());
+
+        Assertions.assertEquals(ApplicationStatus.SENT, actual.status());
+    }
+
+    @Test
+    @Sql(statements = """
+            INSERT INTO applications
+                (id, team_id, student_id, status, type)
+            VALUES
+                (142, 1, 4, 'rejected', 'invite');
+            """,
+            executionPhase = Sql.ExecutionPhase.BEFORE_TEST_METHOD)
+    @Sql(statements = """
+            DELETE FROM applications
+            WHERE id = 142;
+            """,
+            executionPhase = Sql.ExecutionPhase.AFTER_TEST_METHOD)
+    void updateInviteResendFromNonSenderShouldFail() {
+        ApplicationCreationDto dto = ApplicationCreationDto.builder()
+                .id(142L)
+                .status(ApplicationStatus.SENT)
+                .studentId(4L)
+                .teamId(1L)
+                .type(ApplicationType.INVITE)
+                .build();
+
+        Assertions.assertThrows(
+                ForbiddenException.class,
+                () -> underTest.update(dto, userRepository.findById(5L).orElseThrow())
+        );
+    }
+
+    /**
+     * One row per (team, student) pair: the pair already has a request, so the lead cannot
+     * open a second thread with an invite — the student resends their own request instead.
+     */
+    @Test
+    void createInviteForStudentWhoAlreadyAppliedShouldFail() {
+        ApplicationCreationDto dto = ApplicationCreationDto.builder()
+                .status(ApplicationStatus.SENT)
+                .studentId(5L)
+                .teamId(1L)
+                .type(ApplicationType.INVITE)
+                .build();
+
+        Assertions.assertThrows(
+                BusinessException.class,
+                () -> underTest.create(dto, userRepository.findById(3L).orElseThrow())
+        );
     }
 }
