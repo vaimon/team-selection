@@ -62,7 +62,7 @@ class AzureOidcUserServiceTest {
         OidcUserRequest userRequest = createMockUserRequest();
         Role userRole = Role.builder()
                 .id(1L)
-                .name("USER")
+                .name("STUDENT")
                 .build();
 
         var user = spy(User.builder()
@@ -110,7 +110,7 @@ class AzureOidcUserServiceTest {
         // Verify role authority is present
         assertThat(result.getAuthorities())
                 .extracting(GrantedAuthority::getAuthority)
-                .contains("ROLE_USER");
+                .contains("ROLE_STUDENT");
 
         // Verify user attributes
         Assertions.assertEquals("john.doe@example.com", result.getAttribute("email"));
@@ -124,7 +124,7 @@ class AzureOidcUserServiceTest {
         OidcUserRequest userRequest = createMockUserRequest();
         Role defaultRole = Role.builder()
                 .id(1L)
-                .name("USER")
+                .name("STUDENT")
                 .build();
         var user = spy(User.builder()
                 .id(1L)
@@ -169,7 +169,7 @@ class AzureOidcUserServiceTest {
         // Verify authorities include role
         assertThat(result.getAuthorities())
                 .extracting(GrantedAuthority::getAuthority)
-                .contains("ROLE_USER");
+                .contains("ROLE_STUDENT");
     }
 
     @Test
@@ -178,7 +178,7 @@ class AzureOidcUserServiceTest {
         OidcUserRequest userRequest = createMockUserRequest();
         Role userRole = Role.builder()
                 .id(1L)
-                .name("USER")
+                .name("STUDENT")
                 .build();
         var user = spy(User.builder()
                 .id(1L)
@@ -251,7 +251,7 @@ class AzureOidcUserServiceTest {
 //
 //        Role defaultRole = Role.builder()
 //                .id(1L)
-//                .name("USER")
+//                .name("STUDENT")
 //                .build();
 //
 //        User newUser = User.builder()

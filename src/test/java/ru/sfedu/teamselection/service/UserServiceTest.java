@@ -31,7 +31,10 @@ import ru.sfedu.teamselection.service.security.PermissionLevelUpdate;
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 @Transactional
 @ActiveProfiles("test")
-@TestPropertySource("/application-test.yml")
+@TestPropertySource(
+        locations = "/application-test.yml",
+        properties = "app.initial-admin-emails=Chief.Organiser@sfedu.ru, second.admin@sfedu.ru"
+)
 @Sql(value = {"/sql-scripts/create_users.sql"}, executionPhase = Sql.ExecutionPhase.BEFORE_TEST_CLASS)
 class UserServiceTest extends BasicTestContainerTest {
     @Autowired
@@ -122,13 +125,13 @@ class UserServiceTest extends BasicTestContainerTest {
         UserDto dto = UserDto.builder()
                 .fio("n e w")
                 .email("mail@m")
-                .role("USER")
+                .role("STUDENT")
                 .build();
 
         User expected = User.builder()
                 .fio(dto.getFio())
                 .email(dto.getEmail())
-                .role(Role.builder().id(1L).name("USER").build())
+                .role(Role.builder().id(4L).name("STUDENT").build())
                 .build();
 
         User actual = underTest.createOrUpdate(dto, PermissionLevelUpdate.OWNER);
@@ -144,7 +147,7 @@ class UserServiceTest extends BasicTestContainerTest {
                 .id(101L)
                 .fio("n e w")
                 .email("mail@m")
-                .role("USER")
+                .role("STUDENT")
                 .isRemindEnabled(false)
                 .isEnabled(false)
                 .student(
@@ -160,7 +163,7 @@ class UserServiceTest extends BasicTestContainerTest {
                 .id(dto.getId())
                 .fio("Васильева Екатерина Петровна")
                 .email("user26@_mail")
-                .role(Role.builder().id(1L).name("USER").build())
+                .role(Role.builder().id(4L).name("STUDENT").build())
                 .isRemindEnabled(dto.getIsRemindEnabled())
                 .isEnabled(true)
                 .student(null)
@@ -182,7 +185,7 @@ class UserServiceTest extends BasicTestContainerTest {
                 .id(105L)
                 .fio("n e w")
                 .email("mail@m")
-                .role("USER")
+                .role("STUDENT")
                 .isRemindEnabled(false)
                 .isEnabled(false)
                 .student(
@@ -198,7 +201,7 @@ class UserServiceTest extends BasicTestContainerTest {
                 .id(dto.getId())
                 .fio(dto.getFio())
                 .email(dto.getEmail())
-                .role(Role.builder().id(1L).name("USER").build())
+                .role(Role.builder().id(4L).name("STUDENT").build())
                 .isRemindEnabled(dto.getIsRemindEnabled())
                 .isEnabled(dto.getIsEnabled())
                 .student(
@@ -236,12 +239,12 @@ class UserServiceTest extends BasicTestContainerTest {
     void getAllRoles() {
         List<Role> actual = underTest.getAllRoles();
 
-        Assertions.assertEquals(4, actual.size());
+        Assertions.assertEquals(2, actual.size());
     }
 
     @Test
     void assignRole() {
-        String roleName = "JURY";
+        String roleName = "ADMIN";
         var actual = underTest.assignRole(102L, roleName);
 
         Assertions.assertEquals(roleName, actual.getRole().getName());
@@ -308,7 +311,9 @@ class UserServiceTest extends BasicTestContainerTest {
         Assertions.assertEquals("New.Person@sfedu.ru", created.getEmail());
         Assertions.assertEquals("New Person", created.getFio());
         Assertions.assertTrue(created.getIsEnabled());
-        Assertions.assertNotNull(created.getRole());
+        Assertions.assertEquals("STUDENT", created.getRole().getName());
+        Assertions.assertFalse(studentRepository.existsByUserId(created.getId()),
+                "анкета ещё не заполнена — строки в students быть не должно");
     }
 
     /**
@@ -338,5 +343,46 @@ class UserServiceTest extends BasicTestContainerTest {
                         .isEnabled(true)
                         .role(existing.getRole())
                         .build()));
+    }
+
+    @Test
+    void aRoleThatNoLongerExistsCannotBeAssigned() {
+        Assertions.assertThrows(NotFoundException.class, () -> underTest.assignRole(102L, "JURY"));
+    }
+
+    /**
+     * Первый вход организатора после сброса базы: роль берётся из INITIAL_ADMIN_EMAILS, руками в SQL
+     * лезть не надо. Регистр адреса значения не имеет — как и везде при поиске по почте.
+     */
+    @Test
+    void firstLoginOfAListedEmailCreatesAnAdmin() {
+        User created = underTest.findOrCreateByEmail("chief.organiser@SFEDU.ru", "Организатор", "oid-1");
+
+        Assertions.assertEquals("ADMIN", created.getRole().getName());
+    }
+
+    @Test
+    void anExistingUserWithAListedEmailIsLeftAlone() {
+        User existing = userRepository.save(User.builder()
+                .fio("Организатор")
+                .email("second.admin@sfedu.ru")
+                .isEnabled(true)
+                .role(underTest.findRoleByNameOrElseThrow("STUDENT"))
+                .build());
+
+        User found = underTest.findOrCreateByEmail("second.admin@sfedu.ru", "Организатор", "oid-2");
+
+        Assertions.assertEquals(existing.getId(), found.getId());
+        Assertions.assertEquals("STUDENT", found.getRole().getName(), "список — только для создания аккаунта");
+    }
+
+    /**
+     * Строка из сида с ролью USER (id 21) — та самая, которую переназначает миграция V2.05.
+     */
+    @Test
+    void theMigrationMovedHoldersOfTheRemovedRolesToStudent() {
+        User seeded = underTest.findByIdOrElseThrow(21L);
+
+        Assertions.assertEquals("STUDENT", seeded.getRole().getName());
     }
 }

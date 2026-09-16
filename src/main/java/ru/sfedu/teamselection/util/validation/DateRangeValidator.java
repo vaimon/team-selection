@@ -2,12 +2,11 @@ package ru.sfedu.teamselection.util.validation;
 
 import jakarta.validation.ConstraintValidator;
 import jakarta.validation.ConstraintValidatorContext;
-import ru.sfedu.teamselection.dto.track.TrackCreationDto;
 
-public class DateRangeValidator implements ConstraintValidator<ValidDateRange, TrackCreationDto> {
+public class DateRangeValidator implements ConstraintValidator<ValidDateRange, DateRange> {
 
     @Override
-    public boolean isValid(TrackCreationDto dto, ConstraintValidatorContext context) {
+    public boolean isValid(DateRange dto, ConstraintValidatorContext context) {
         if (dto.getStartDate() == null || dto.getEndDate() == null) {
             return true;
         }

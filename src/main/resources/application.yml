@@ -82,6 +82,8 @@ management:
         include: health
 
 app:
+  # Кому выдать ADMIN при создании аккаунта (первый вход). Пусто — никому.
+  initial-admin-emails: ${INITIAL_ADMIN_EMAILS:}
   scheduler:
     enabled: true
     studentTrack: "0 0 0 * * ?"

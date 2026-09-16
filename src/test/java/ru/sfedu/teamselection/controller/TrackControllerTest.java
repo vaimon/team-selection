@@ -328,4 +328,66 @@ public class TrackControllerTest {
                         .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(studentWithoutQuestionnaire)))
                 .andExpect(status().isForbidden());
     }
+
+    /**
+     * Настройки набора правит только администратор, но и он не должен уметь выставить
+     * отрицательное число мест или окно, закрывающееся раньше, чем открылось.
+     */
+    @Test
+    public void whenUpdateTrackWithANegativeTargetThenReturn400() throws Exception {
+        String track = """
+                {
+                   "id": 1,
+                   "name": "Набор 2026",
+                   "startDate": "2026-10-01",
+                   "endDate": "2026-10-31",
+                   "type": "bachelor",
+                   "firstYearTarget": -1,
+                   "secondYearTarget": 3
+                 }""";
+
+        mockMvc.perform(put("/api/v1/tracks/{id}".replace("{id}", "1"))
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin))
+                        .content(track)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        Mockito.verify(trackService, Mockito.never()).update(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    public void whenUpdateTrackWithAWindowClosingBeforeItOpensThenReturn400() throws Exception {
+        String track = """
+                {
+                   "id": 1,
+                   "name": "Набор 2026",
+                   "startDate": "2026-10-31",
+                   "endDate": "2026-10-01",
+                   "type": "bachelor",
+                   "firstYearTarget": 3,
+                   "secondYearTarget": 3
+                 }""";
+
+        mockMvc.perform(put("/api/v1/tracks/{id}".replace("{id}", "1"))
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin))
+                        .content(track)
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        Mockito.verify(trackService, Mockito.never()).update(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    public void whenStartingASelectionWithAWindowClosingBeforeItOpensThenReturn400() throws Exception {
+        mockMvc.perform(post("/api/v1/tracks/new-selection")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin))
+                        .content("{\"name\": \"Набор 2027\", \"startDate\": \"2027-10-31\", \"endDate\": \"2027-10-01\"}")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        Mockito.verify(trackService, Mockito.never()).startNewSelection(Mockito.any());
+    }
 }

@@ -9,6 +9,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import ru.sfedu.teamselection.util.validation.DateRange;
 import ru.sfedu.teamselection.util.validation.ValidDateRange;
 
 @Getter
@@ -16,7 +17,7 @@ import ru.sfedu.teamselection.util.validation.ValidDateRange;
 @NoArgsConstructor
 @AllArgsConstructor
 @ValidDateRange
-public class TrackCreationDto {
+public class TrackCreationDto implements DateRange {
     @NotNull
     @NotBlank
     private String name;

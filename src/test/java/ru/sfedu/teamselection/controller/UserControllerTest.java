@@ -83,8 +83,6 @@ public class UserControllerTest {
             .build();
 
     private final List<Role> roleDtoList = List.of(
-            new Role(1L, "USER"),
-            new Role(2L, "JURY"),
             new Role(3L, "ADMIN"),
             new Role(4L, "STUDENT")
     );
@@ -100,7 +98,7 @@ public class UserControllerTest {
                     "id": 2,
                     "fio": "f i o",
                     "email": "email@mail.mail",
-                    "role": "USER",
+                    "role": "STUDENT",
                     "isRemindEnabled": false,
                     "isEnabled": false
                 }""";
@@ -132,7 +130,7 @@ public class UserControllerTest {
                     "id": 3,
                     "fio": "f i o",
                     "email": "email@mail.mail",
-                    "role": "USER",
+                    "role": "STUDENT",
                     "isRemindEnabled": false,
                     "isEnabled": false
                 }""";
@@ -156,7 +154,7 @@ public class UserControllerTest {
                     "id": 3,
                     "fio": "f i o",
                     "email": "email@mail.mail",
-                    "role": "USER",
+                    "role": "STUDENT",
                     "isRemindEnabled": false,
                     "isEnabled": false
                 }""";
