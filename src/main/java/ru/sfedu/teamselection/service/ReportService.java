@@ -92,7 +92,7 @@ public class ReportService {
         row.getCell(4).setCellStyle(style);
         row.createCell(5).setCellValue("Тэги");
         row.getCell(5).setCellStyle(style);
-        row.createCell(6).setCellValue("Капитан");
+        row.createCell(6).setCellValue("Тимлид");
         row.getCell(6).setCellStyle(style);
     }
 

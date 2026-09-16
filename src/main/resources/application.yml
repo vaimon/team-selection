@@ -1,5 +1,11 @@
 server:
   port: 8080
+  servlet:
+    session:
+      cookie:
+        # Lax is enough: in prod the SPA and the API are one origin behind nginx, and local dev is
+        # localhost to localhost. Secure is left to the container, so plain-http dev still works.
+        same-site: lax
 #  forward-headers-strategy: native
 #  ssl:
 #    key-store: keystore.p12
@@ -70,14 +76,10 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,prometheus
-  metrics:
-    export:
-      prometheus:
-        enabled: true
-    distribution:
-      percentiles-histogram:
-        "[http.server.requests]": true
+        # Только health. Prometheus и Grafana убраны из compose этого форка вместе с этой правкой:
+        # метрики отложены, скрейпить эндпоинт некому, а открытым он рассказывал про внутренности
+        # приложения. Вернём вместе со стеком метрик, когда он появится.
+        include: health
 
 app:
   scheduler:

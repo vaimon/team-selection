@@ -12,14 +12,14 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.core.session.SessionRegistry;
 import org.springframework.security.core.session.SessionRegistryImpl;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.intercept.AuthorizationFilter;
+import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import ru.sfedu.teamselection.config.security.CurrentAuthoritiesFilter;
 import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
-import org.springframework.security.web.access.expression.WebExpressionAuthorizationManager;
 import org.springframework.security.web.session.HttpSessionEventPublisher;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -51,20 +51,32 @@ public class SecurityConfig {
     @Order(2)
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+        // The token has to be written on every response, otherwise the SPA has nothing to send
+        // back: with Spring Security 6 deferred tokens the repository is never touched until
+        // something reads the token, and the cookie is simply not there. A null attribute name
+        // opts out of that deferral. The plain (non-XOR) token is enough here — it is never
+        // rendered into a response body, so BREACH does not apply.
+        CsrfTokenRequestAttributeHandler csrfRequestHandler = new CsrfTokenRequestAttributeHandler();
+        csrfRequestHandler.setCsrfRequestAttributeName(null);
+
         http
-                .csrf(AbstractHttpConfigurer::disable)
+                .csrf(csrf -> csrf
+                        .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                        .csrfTokenRequestHandler(csrfRequestHandler)
+                )
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/error").permitAll()
                         .requestMatchers("/login", "/registration").anonymous()
                         .requestMatchers(HttpMethod.DELETE).hasAuthority(ADMIN_ROLE_NAME)
-                        .requestMatchers("/actuator/prometheus")
-                            .access(new WebExpressionAuthorizationManager("hasIpAddress('10.5.0.55')"))
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().permitAll()
                 )
+                // No session limit: a laptop and a phone are the normal case, and logging in on one
+                // used to drop the other. The registry itself stays — UserSessionService expires
+                // sessions through it, and expiredUrl is what sends such a session back to login.
                 .sessionManagement(session -> session
-                        .maximumSessions(1)
+                        .maximumSessions(-1)
                         .sessionRegistry(sessionRegistry())
                         .expiredUrl("/login?expired")
                 )
@@ -97,7 +109,7 @@ public class SecurityConfig {
         corsConfiguration.setAllowCredentials(true); // Required for session/cookie-based auth
         corsConfiguration.setAllowedOrigins(List.of(frontendUrl)); // Explicitly define allowed origin
         corsConfiguration.setAllowedHeaders(Arrays.asList(
-                "Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With"
+                "Origin", "Content-Type", "Accept", "Authorization", "X-Requested-With", "X-XSRF-TOKEN"
         ));
         // Headers you expose to the frontend
         corsConfiguration.setExposedHeaders(Arrays.asList("Content-Type", "Authorization"));

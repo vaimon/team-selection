@@ -13,15 +13,13 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Service;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.exception.ForbiddenException;
-import ru.sfedu.teamselection.repository.RoleRepository;
-import ru.sfedu.teamselection.repository.UserRepository;
+import ru.sfedu.teamselection.service.UserService;
 
 @RequiredArgsConstructor
 @Service
 public class AzureOidcUserService extends OidcUserService {
 
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
+    private final UserService userService;
 
 
     @Override
@@ -32,18 +30,7 @@ public class AzureOidcUserService extends OidcUserService {
         String name = oidcUser.getAttribute("name");
         String azureOid = oidcUser.getAttribute("oid");
 
-        // найдём или создадим пользователя в БД
-        User user = userRepository.findByEmailFetchRole(email)
-                .orElseGet(() -> {
-                    User u = User.builder()
-                            .fio(name)
-                            .email(email)
-                            .isEnabled(true)
-                            .role(roleRepository.findById(1L).orElseThrow())
-                            .azureId(azureOid)
-                            .build();
-                    return userRepository.save(u);
-                });
+        User user = userService.findOrCreateByEmail(email, name, azureOid);
 
         if (!user.isEnabled()) {
             throw new ForbiddenException(

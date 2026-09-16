@@ -48,33 +48,8 @@ services:
       - '15433:5432'
     networks:
       - backend
-  grafana:
-    image: grafana/grafana:10.4.2
-    restart: on-failure
-    environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-    ports:
-      - "3000:3000"
-    depends_on:
-      - prometheus
-    networks:
-      - backend
-  prometheus:
-    image: prom/prometheus:v2.51.2
-    volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml
-      - prometheus_data:/prometheus
-    ports:
-      - "9090:9090"
-    networks:
-      backend:
-        ipv4_address: 10.5.0.55
-    depends_on:
-      - team-selection
 volumes:
   postgresql: { }
-  prometheus_data:
 networks:
   backend:
     driver: bridge

@@ -11,16 +11,21 @@ import ru.sfedu.teamselection.domain.User;
 
 public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificationExecutor<User> {
 
+    /**
+     * Почта уникальна без учёта регистра (unique-индекс на lower(email)), поэтому и ищем так же:
+     * иначе вход с другим написанием адреса не нашёл бы пользователя и пошёл создавать второго.
+     */
+    @Query("select u from User u where lower(u.email) = lower(?1)")
     Optional<User> findByEmail(String email);
 
     Optional<User> findByFio(String fio);
 
     @Transactional
     @Modifying
-    @Query("update User u set u.role = ?1 where u.email = ?2")
+    @Query("update User u set u.role = ?1 where lower(u.email) = lower(?2)")
     void updateRoleByEmail(Role role, String email);
 
-    @Query("select u from User u join fetch u.role where u.email = ?1")
+    @Query("select u from User u join fetch u.role where lower(u.email) = lower(?1)")
     Optional<User> findByEmailFetchRole(String email);
 }
 
