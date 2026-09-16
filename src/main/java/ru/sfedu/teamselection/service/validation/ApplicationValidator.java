@@ -33,7 +33,9 @@ public class ApplicationValidator {
                 .findByTeamIdAndStudentId(dto.getTeamId(), dto.getStudentId())
                 .orElse(null);
         if (application != null && !skipExistingCheck) {
-            return new ValidationResult.Failure("Уже есть активная заявка/приглашение");
+            return new ValidationResult.Failure(
+                    "Заявка или приглашение для этой команды уже существует — отправьте её повторно"
+            );
         }
         var team = teamService.findByIdOrElseThrow(dto.getTeamId());
         var captain = studentService.findByIdOrElseThrow(team.getCaptainId());
@@ -51,11 +53,11 @@ public class ApplicationValidator {
 
 
         if (!Boolean.TRUE.equals(team.getCurrentTrack().getActive())) {
-            return new ValidationResult.Failure("Невозможно — отбор этой команды завершён");
+            return new ValidationResult.Failure("Невозможно — набор, в котором создана эта команда, завершён");
         }
         if (student.getCurrentTrack() == null
                 || !Objects.equals(student.getCurrentTrack().getId(), team.getCurrentTrack().getId())) {
-            return new ValidationResult.Failure("Невозможно — студент не участвует в текущем отборе");
+            return new ValidationResult.Failure("Невозможно — студент не участвует в текущем наборе");
         }
         if (!TeamComposition.of(team).canJoin(student.getCourse())) {
             return new ValidationResult.Failure("Невозможно — " + TeamService.noPlacesMessage(student.getCourse()));
@@ -65,7 +67,7 @@ public class ApplicationValidator {
 
     @SuppressWarnings("checkstyle:ReturnCount")
     public ValidationResult validateUpdate(ApplicationStatus status, User requestSender, Application app) {
-        if (app.getStatus().toLowerCase().equals(ApplicationStatus.ACCEPTED.toString())) {
+        if (app.status() == ApplicationStatus.ACCEPTED) {
             return new ValidationResult.Failure("Невозможно изменить статус принятой заявки");
         }
 
@@ -80,7 +82,7 @@ public class ApplicationValidator {
                 return validateCancel(requestSender, app);
             }
             case SENT -> {
-                if (ApplicationStatus.of(app.getStatus()).equals(ApplicationStatus.SENT)) {
+                if (app.status() == ApplicationStatus.SENT) {
                     return new ValidationResult.Failure("Невозможно — заявка уже в статусе `Отправлена`");
                 }
                 return validateCreate(applicationMapper.mapToCreationDto(app), requestSender, true);
@@ -94,8 +96,8 @@ public class ApplicationValidator {
         if (!(senderIsTarget instanceof ValidationResult.Success)) {
             return senderIsTarget;
         }
-        if (!(ApplicationStatus.of(application.getStatus()).equals(ApplicationStatus.SENT)
-                || ApplicationStatus.of(application.getStatus()).equals(ApplicationStatus.REJECTED))) {
+        // Отклонённую или отменённую заявку оживляет только отправитель, повторно отправив её
+        if (application.status() != ApplicationStatus.SENT) {
             return new ValidationResult.Failure("Невозможно одобрить — заявка в неподходящем статусе");
         }
         if (!TeamComposition.of(application.getTeam()).canJoin(application.getStudent().getCourse())) {
@@ -110,14 +112,14 @@ public class ApplicationValidator {
         if (!(senderIsTarget instanceof ValidationResult.Success)) {
             return senderIsTarget;
         }
-        if (!application.getStatus().equals(ApplicationStatus.SENT.toString())) {
+        if (application.status() != ApplicationStatus.SENT) {
             return new ValidationResult.Failure("Невозможно отклонить — заявка не статусе `Отправлена`");
         }
         return new ValidationResult.Success();
     }
 
     private ValidationResult validateCancel(User requestSender, Application application) {
-        if (!application.getStatus().toLowerCase().equals(ApplicationStatus.SENT.toString())) {
+        if (application.status() != ApplicationStatus.SENT) {
             return new ValidationResult.Failure(
                     "Заявку можно отменить только если она находится в статусе `Отправлена`"
             );

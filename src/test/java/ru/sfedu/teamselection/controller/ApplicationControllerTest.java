@@ -25,6 +25,7 @@ import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -81,9 +82,45 @@ class ApplicationControllerTest {
         mockMvc.perform(post(ApplicationController.CREATE_APPLICATION)
                         .with(SecurityMockMvcRequestPostProcessors.csrf())
                         .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(withRole("ROLE_STUDENT")))
-                        .content("{\"team_id\": 1, \"student_id\": 5, \"type\": \"request\"}")
+                        .content("{\"team_id\": 1, \"student_id\": 5, \"status\": \"sent\", \"type\": \"request\"}")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden());
+
+        Mockito.verifyNoInteractions(applicationService);
+    }
+
+    @Test
+    void applicationWithoutTypeIsRejected() throws Exception {
+        mockMvc.perform(post(ApplicationController.CREATE_APPLICATION)
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(withRole("ROLE_PARTICIPANT")))
+                        .content("{\"team_id\": 1, \"student_id\": 5, \"status\": \"sent\"}")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        Mockito.verifyNoInteractions(applicationService);
+    }
+
+    @Test
+    void applicationWithUnknownTypeIsRejected() throws Exception {
+        mockMvc.perform(post(ApplicationController.CREATE_APPLICATION)
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(withRole("ROLE_PARTICIPANT")))
+                        .content("{\"team_id\": 1, \"student_id\": 5, \"status\": \"sent\", \"type\": \"whatever\"}")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        Mockito.verifyNoInteractions(applicationService);
+    }
+
+    @Test
+    void statusUpdateWithoutTypeIsRejected() throws Exception {
+        mockMvc.perform(put(ApplicationController.UPDATE_APPLICATION)
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(withRole("ROLE_PARTICIPANT")))
+                        .content("{\"id\": 1, \"team_id\": 1, \"student_id\": 5, \"status\": \"accepted\"}")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
 
         Mockito.verifyNoInteractions(applicationService);
     }

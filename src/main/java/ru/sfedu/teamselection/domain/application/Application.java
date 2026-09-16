@@ -48,10 +48,22 @@ public abstract class Application {
     private Team team;
 
     @Builder.Default
-    private String status = ApplicationStatus.SENT.name();
+    private String status = ApplicationStatus.SENT.toString();
 
     @Column(insertable = false, updatable = false)
     private ApplicationType type;
+
+    /**
+     * Статус хранится строкой в нижнем регистре — так он лежит в БД, так его пишет
+     * {@link ApplicationStatus#toString()} и так его сравнивают JPQL-запросы.
+     */
+    public void setStatus(ApplicationStatus status) {
+        this.status = status.toString();
+    }
+
+    public ApplicationStatus status() {
+        return ApplicationStatus.of(status);
+    }
 
     /**
      * Возвращает id студента, которого можно считать отправителем для этой заявки

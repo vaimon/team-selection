@@ -25,11 +25,11 @@ public class ApplicationCreationDto {
 
     @NotNull
     @JsonProperty(value = "student_id")
-    private long studentId;
+    private Long studentId;
 
     @NotNull
     @JsonProperty(value = "team_id")
-    private long teamId;
+    private Long teamId;
 
     @NotNull
     private ApplicationStatus status;

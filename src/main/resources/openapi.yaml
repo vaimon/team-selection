@@ -426,7 +426,7 @@ paths:
     get:
       tags:
         - Track
-      summary: 'Текущий отбор (активный трек)'
+      summary: 'Текущий набор (активный трек)'
       operationId: findCurrentTrack
       responses:
         '200':
@@ -436,12 +436,12 @@ paths:
               schema:
                 $ref: '#/components/schemas/TrackDto'
         '404':
-          description: Отбор ещё не начат
+          description: Набор ещё не начат
   /api/v1/tracks/new-selection:
     post:
       tags:
         - Track
-      summary: Начать новый отбор
+      summary: Начать новый набор
       description: |
         Создаёт новый активный трек с настройками текущего; прежний становится доступен только для чтения.
 

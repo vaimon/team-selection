@@ -27,7 +27,6 @@ public interface ApplicationMapper {
     // Создание сущности из DTO при запросе на создание
     @Mapping(source = "teamId",    target = "team.id")
     @Mapping(source = "studentId", target = "student.id")
-    @Mapping(target = "status",    qualifiedByName = "mapStatus")
     Application mapCreationToEntity(ApplicationCreationDto dto);
 
     @InheritInverseConfiguration(name = "mapCreationToEntity")
@@ -55,7 +54,7 @@ public interface ApplicationMapper {
     ApplicationDto mapToDto(Application entity);
 
     @InheritInverseConfiguration(name = "mapToDto")
-    @Mapping(target = "status", qualifiedByName = "mapStatus")
+    @Mapping(target = "status", source = "status")
     Application mapToEntity(ApplicationDto dto);
 
     @Named("mapStatus")

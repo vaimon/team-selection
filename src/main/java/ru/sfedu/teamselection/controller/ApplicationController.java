@@ -4,6 +4,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.enums.ParameterIn;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import java.util.logging.Logger;
 import lombok.RequiredArgsConstructor;
 import org.springdoc.core.annotations.ParameterObject;
@@ -86,7 +87,9 @@ public class ApplicationController {
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @PostMapping(CREATE_APPLICATION)
     @Auditable(auditPoint = "Application.CreateApplication")
-    public ResponseEntity<ApplicationCreationDto> createApplication(@RequestBody ApplicationCreationDto application) {
+    public ResponseEntity<ApplicationCreationDto> createApplication(
+            @Valid @RequestBody ApplicationCreationDto application
+    ) {
         LOGGER.info("ENTER createApplication() endpoint");
         User user = userService.getCurrentUser();
         ApplicationCreationDto result = applicationMapper.mapToCreationDto(
@@ -105,7 +108,7 @@ public class ApplicationController {
     @PutMapping(UPDATE_APPLICATION)
     @Auditable(auditPoint = "Application.Update")
     public ResponseEntity<ApplicationCreationDto> update(
-            @RequestBody ApplicationCreationDto dto
+            @Valid @RequestBody ApplicationCreationDto dto
     ) {
         User current = userService.getCurrentUser();
         ApplicationCreationDto result = applicationMapper.mapToCreationDto(

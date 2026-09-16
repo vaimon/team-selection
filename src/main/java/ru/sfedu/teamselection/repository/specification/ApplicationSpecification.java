@@ -13,7 +13,8 @@ public final class ApplicationSpecification {
     }
 
     public static Specification<Application> byStatus(String status) {
+        // Фильтр приходит из query-параметра, регистр которого мы не контролируем
         return (root, query, criteriaBuilder) ->
-                criteriaBuilder.equal(root.get("status"), status);
+                criteriaBuilder.equal(criteriaBuilder.lower(root.get("status")), status.toLowerCase());
     }
 }

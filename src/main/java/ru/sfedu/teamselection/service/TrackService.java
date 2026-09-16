@@ -54,7 +54,7 @@ public class TrackService {
     @Transactional(readOnly = true)
     public Track getActive() {
         return trackRepository.findByActiveTrue()
-                .orElseThrow(() -> new NotFoundException("Отбор не настроен: нет активного отбора"));
+                .orElseThrow(() -> new NotFoundException("Набор не настроен: нет активного набора"));
     }
 
     /**
@@ -63,7 +63,7 @@ public class TrackService {
      */
     public void assertWritable(Track track) {
         if (!Boolean.TRUE.equals(track.getActive())) {
-            throw new BusinessException("Отбор «%s» завершён, его данные только для чтения".formatted(track.getName()));
+            throw new BusinessException("Набор «%s» завершён, его данные только для чтения".formatted(track.getName()));
         }
     }
 
@@ -92,7 +92,7 @@ public class TrackService {
         LocalDate start = dto.getStartDate();
         String name = dto.getName() != null && !dto.getName().isBlank()
                 ? dto.getName()
-                : "Отбор " + (start != null ? start : LocalDate.now()).getYear();
+                : "Набор " + (start != null ? start : LocalDate.now()).getYear();
         TrackType type = previous.map(Track::getType).orElse(TrackType.bachelor);
         assertNameIsFree(name, type);
 
@@ -147,7 +147,7 @@ public class TrackService {
     public void deleteById(Long id) {
         Track track = findByIdOrElseThrow(id);
         if (Boolean.TRUE.equals(track.getActive())) {
-            throw new BusinessException("Нельзя удалить текущий отбор. Сначала начните новый.");
+            throw new BusinessException("Нельзя удалить текущий набор. Сначала начните новый.");
         }
         if (!track.getStudents().isEmpty()) {
             log.error(

@@ -113,7 +113,7 @@ public class TeamController {
             summary = "Поиск команд с фильтрацией, пагинацией и сортировкой",
             parameters = {
                     @Parameter(name = "input", description = "строка из поиска", in = ParameterIn.QUERY),
-                    @Parameter(name = "track_id", description = "ID трека; по умолчанию текущий отбор", in = ParameterIn.QUERY),
+                    @Parameter(name = "track_id", description = "ID трека; по умолчанию текущий набор", in = ParameterIn.QUERY),
                     @Parameter(name = "is_full", description = "Команда собрана: выполнены цели по обоим курсам", in = ParameterIn.QUERY),
                     @Parameter(name = "project_type", description = "Тип проекта", in = ParameterIn.QUERY),
                     @Parameter(name = "technologies", description = "Список ID технологий", in = ParameterIn.QUERY),
