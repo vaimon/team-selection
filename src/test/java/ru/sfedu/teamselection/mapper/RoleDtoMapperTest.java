@@ -14,12 +14,12 @@ class RoleDtoMapperTest {
     void mapToEntity() {
         Role expected = Role.builder()
                 .id(1L)
-                .name("USER")
+                .name("STUDENT")
                 .build();
 
         RoleDto dto = RoleDto.builder()
                 .id(1L)
-                .name("USER")
+                .name("STUDENT")
                 .build();
 
         Role actual = underTest.mapToEntity(dto);
@@ -37,12 +37,12 @@ class RoleDtoMapperTest {
     void mapToDto() {
         RoleDto expected = RoleDto.builder()
                 .id(1L)
-                .name("USER")
+                .name("STUDENT")
                 .build();
 
         Role entity = Role.builder()
                 .id(1L)
-                .name("USER")
+                .name("STUDENT")
                 .build();
         RoleDto actual = underTest.mapToDto(entity);
 

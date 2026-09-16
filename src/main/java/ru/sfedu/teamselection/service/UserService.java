@@ -1,8 +1,10 @@
 package ru.sfedu.teamselection.service;
 
+import java.util.Arrays;
 import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -32,8 +34,17 @@ import ru.sfedu.teamselection.service.student.update.StudentUpdateFactory;
 @RequiredArgsConstructor
 @Service
 public class UserService {
-    /** Роль USER: её получает всякий, кто впервые вошёл. Модель ролей меняется в vaimon/team-selection#17. */
-    private static final Long DEFAULT_ROLE_ID = 1L;
+    /** Ролей две: STUDENT достаётся всякому, кто вошёл, ADMIN выдаётся отдельно. */
+    private static final String STUDENT_ROLE = "STUDENT";
+    private static final String ADMIN_ROLE = "ADMIN";
+
+    /**
+     * Почты будущих администраторов через запятую. Роль по списку выдаётся только при создании
+     * аккаунта: организатор получает её первым входом после сброса базы, а дальше ролями
+     * распоряжается админка, и список у неё ничего не отбирает. Пусто — никому.
+     */
+    @Value("${app.initial-admin-emails:}")
+    private String initialAdminEmails;
 
     private final UserRepository userRepository;
     private final RoleRepository roleRepository;
@@ -96,12 +107,19 @@ public class UserService {
                     .fio(fio)
                     .email(email)
                     .isEnabled(true)
-                    .role(roleRepository.findById(DEFAULT_ROLE_ID).orElseThrow())
+                    .role(findRoleByNameOrElseThrow(isInitialAdmin(email) ? ADMIN_ROLE : STUDENT_ROLE))
                     .azureId(azureId)
                     .build());
         } catch (DataIntegrityViolationException alreadyCreated) {
             return userRepository.findByEmailFetchRole(email).orElseThrow();
         }
+    }
+
+    private boolean isInitialAdmin(String email) {
+        return Arrays.stream(initialAdminEmails.split(","))
+                .map(String::trim)
+                .filter(listed -> !listed.isEmpty())
+                .anyMatch(listed -> listed.equalsIgnoreCase(email));
     }
 
     public Role findRoleByNameOrElseThrow(String roleName) {
@@ -152,9 +170,8 @@ public class UserService {
 
         } else {
             User user = userMapper.mapToEntity(dto);
-            // явно прописываем пользователю роль USER, чтобы исключить возможность
-            // регистрации с ролью ADMIN
-            Role role = findRoleByNameOrElseThrow("USER");
+            // роль проставляем сами, чтобы нельзя было зарегистрироваться администратором
+            Role role = findRoleByNameOrElseThrow(STUDENT_ROLE);
             user.setRole(role);
             if (dto.getStudent() != null) {
                 Student student = Student.builder()
@@ -178,7 +195,7 @@ public class UserService {
         User user = findByIdOrElseThrow(userId);
         Role role = findRoleByNameOrElseThrow(roleName);
 
-        if ("STUDENT".equals(roleName) && !studentRepository.existsByUserId(userId)) {
+        if (STUDENT_ROLE.equals(roleName) && !studentRepository.existsByUserId(userId)) {
             Student student = Student.builder()
                     .user(user)
                     .build();

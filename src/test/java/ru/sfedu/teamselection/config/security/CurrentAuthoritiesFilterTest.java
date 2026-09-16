@@ -46,7 +46,7 @@ class CurrentAuthoritiesFilterTest {
 
     @Test
     void rolesFromTheSessionAreReplacedByCurrentOnesAndScopesAreKept() throws Exception {
-        SecurityContextHolder.getContext().setAuthentication(loggedInAs("ROLE_USER", "SCOPE_openid"));
+        SecurityContextHolder.getContext().setAuthentication(loggedInAs("ROLE_STUDENT", "SCOPE_openid"));
         Mockito.when(resolver.resolve("st@sfedu.ru")).thenReturn(Optional.of(Set.of(
                 new SimpleGrantedAuthority("ROLE_STUDENT"),
                 new SimpleGrantedAuthority(CurrentAuthoritiesResolver.PARTICIPANT)
@@ -58,10 +58,10 @@ class CurrentAuthoritiesFilterTest {
 
     @Test
     void unknownAccountKeepsTheSessionAuthorities() throws Exception {
-        SecurityContextHolder.getContext().setAuthentication(loggedInAs("ROLE_USER"));
+        SecurityContextHolder.getContext().setAuthentication(loggedInAs("ROLE_STUDENT"));
         Mockito.when(resolver.resolve("st@sfedu.ru")).thenReturn(Optional.empty());
 
-        assertThat(authoritiesAfterFilter()).containsExactly("ROLE_USER");
+        assertThat(authoritiesAfterFilter()).containsExactly("ROLE_STUDENT");
     }
 
     @Test

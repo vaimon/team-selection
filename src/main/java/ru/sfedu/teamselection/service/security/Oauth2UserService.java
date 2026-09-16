@@ -1,42 +1,29 @@
 package ru.sfedu.teamselection.service.security;
 
 
-import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
 import org.springframework.stereotype.Service;
 import ru.sfedu.teamselection.domain.User;
-import ru.sfedu.teamselection.repository.RoleRepository;
-import ru.sfedu.teamselection.repository.UserRepository;
+import ru.sfedu.teamselection.service.UserService;
 
+/**
+ * Вход через не-OIDC провайдера. Живых таких нет — зарегистрирован только azure, а он OIDC, — но
+ * цепочка на этот сервис всё ещё ссылается, поэтому он обязан заводить пользователя так же, как
+ * основной путь: одна роль по умолчанию, один список начальных администраторов.
+ */
 @RequiredArgsConstructor
 @Service
 public class Oauth2UserService extends DefaultOAuth2UserService {
 
-    private final UserRepository userRepository;
-    private final RoleRepository roleRepository;
+    private final UserService userService;
 
     @Override
     public User loadUser(OAuth2UserRequest userRequest) {
         var oAuth2User = super.loadUser(userRequest);
-        String email = oAuth2User.getAttribute("email");
+        // у гитхаба почта по умолчанию приватная, поэтому опознаём по логину
         String login = oAuth2User.getAttribute("login");
-        //TODO Пока так, ибо в гитхабе почта приватная по умолчанию
-        Optional<User> userInDb = userRepository.findByEmailFetchRole(login);
-
-        if (userInDb.isEmpty()) {
-            User newUser = User.builder()
-                    .fio(login)
-                    .email(login)
-                    .isEnabled(true)
-                    .role(roleRepository.findById(1L).orElseThrow())
-                    .build();
-            return userRepository.save(newUser);
-        }
-
-        return userInDb.get();
+        return userService.findOrCreateByEmail(login, login, null);
     }
 }
-
-
