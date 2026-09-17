@@ -19,6 +19,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.transaction.annotation.Transactional;
 import ru.sfedu.teamselection.BasicTestContainerTest;
+import ru.sfedu.teamselection.SelectionWindowFixture;
 import ru.sfedu.teamselection.TeamSelectionApplication;
 import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Team;
@@ -37,6 +38,7 @@ import ru.sfedu.teamselection.exception.ForbiddenException;
 import ru.sfedu.teamselection.repository.ApplicationRepository;
 import ru.sfedu.teamselection.repository.StudentRepository;
 import ru.sfedu.teamselection.repository.TeamRepository;
+import ru.sfedu.teamselection.repository.TrackRepository;
 
 
 @SpringBootTest(classes = TeamSelectionApplication.class)
@@ -61,6 +63,9 @@ class TeamServiceTest extends BasicTestContainerTest {
     @Autowired
     private ApplicationRepository applicationRepository;
 
+    @Autowired
+    private TrackRepository trackRepository;
+
     private User getAdmin() {
         return userService.findByIdOrElseThrow(1L);
     }
@@ -70,6 +75,16 @@ class TeamServiceTest extends BasicTestContainerTest {
     public void beforeEach() {
         MockitoAnnotations.openMocks(this);
         Mockito.doNothing().when(teamRepository).delete(Mockito.notNull(Team.class));
+        openTheSelectionWindow();
+    }
+
+    /**
+     * Эти тесты про правила команд, а не про окно набора: сид-набор закрылся в прошлом, поэтому окно
+     * открывается явно. Само окно разобрано в SelectionWindowServiceTest, а тесты ниже закрывают его
+     * намеренно.
+     */
+    private void openTheSelectionWindow() {
+        SelectionWindowFixture.open(trackRepository);
     }
 
     @Test
@@ -548,5 +563,108 @@ class TeamServiceTest extends BasicTestContainerTest {
                 ApplicationStatus.REJECTED,
                 applicationRepository.findById(132L).orElseThrow().status()
         );
+    }
+
+    // --- окно набора (#6) ---
+
+    private void closeTheSelectionWindow() {
+        SelectionWindowFixture.closed(trackRepository);
+    }
+
+    private void delayTheSelectionOpening() {
+        SelectionWindowFixture.notOpenYet(trackRepository);
+    }
+
+    private User userOfStudent(Long studentId) {
+        return userService.findByIdOrElseThrow(
+                studentRepository.findById(studentId).orElseThrow().getUser().getId());
+    }
+
+    private TeamCreationDto newTeamFromStudentFive(String name) {
+        return TeamCreationDto.builder()
+                .name(name)
+                .projectDescription("projectDescription")
+                .projectType(new ProjectTypeDto().id(1L))
+                .captainId(5L)
+                .currentTrackId(1L)
+                .build();
+    }
+
+    @Test
+    void aStudentCannotCreateATeamBeforeTheSelectionOpens() {
+        delayTheSelectionOpening();
+        TeamCreationDto dto = newTeamFromStudentFive("too early");
+
+        Assertions.assertThrows(ForbiddenException.class, () -> underTest.create(dto, userOfStudent(5L)));
+    }
+
+    @Test
+    void aStudentCannotCreateATeamAfterTheSelectionCloses() {
+        closeTheSelectionWindow();
+        TeamCreationDto dto = newTeamFromStudentFive("too late");
+
+        Assertions.assertThrows(ForbiddenException.class, () -> underTest.create(dto, userOfStudent(5L)));
+    }
+
+    @Test
+    void anAdminStillCreatesATeamAfterTheSelectionCloses() {
+        closeTheSelectionWindow();
+        TeamCreationDto dto = newTeamFromStudentFive("admin cleanup");
+
+        Team actual = underTest.create(dto, getAdmin());
+
+        Assertions.assertEquals("admin cleanup", actual.getName());
+    }
+
+    @Test
+    void aCaptainCannotUpdateTheTeamAfterTheSelectionCloses() {
+        Team team = teamRepository.findById(1L).orElseThrow();
+        User captain = userOfStudent(team.getCaptainId());
+        TeamUpdateDto dto = TeamUpdateDto.builder()
+                .id(team.getId())
+                .captainId(team.getCaptainId())
+                .name(team.getName())
+                .projectDescription("too late")
+                .projectType(new ProjectTypeDto().id(1L))
+                .studentIds(team.getStudents().stream().map(Student::getId).collect(Collectors.toUnmodifiableSet()))
+                .build();
+        closeTheSelectionWindow();
+
+        Assertions.assertThrows(ForbiddenException.class, () -> underTest.update(team.getId(), dto, captain));
+    }
+
+    @Test
+    void anAdminStillUpdatesTheTeamAfterTheSelectionCloses() {
+        Team team = teamRepository.findById(1L).orElseThrow();
+        TeamUpdateDto dto = TeamUpdateDto.builder()
+                .id(team.getId())
+                .captainId(team.getCaptainId())
+                .name(team.getName())
+                .projectDescription("admin cleanup")
+                .projectType(new ProjectTypeDto().id(1L))
+                .studentIds(team.getStudents().stream().map(Student::getId).collect(Collectors.toUnmodifiableSet()))
+                .build();
+        closeTheSelectionWindow();
+
+        Team actual = underTest.update(team.getId(), dto, getAdmin());
+
+        Assertions.assertEquals("admin cleanup", actual.getProjectDescription());
+    }
+
+    @Test
+    void aCaptainCannotUpdateTheTeamBeforeTheSelectionOpens() {
+        Team team = teamRepository.findById(1L).orElseThrow();
+        User captain = userOfStudent(team.getCaptainId());
+        TeamUpdateDto dto = TeamUpdateDto.builder()
+                .id(team.getId())
+                .captainId(team.getCaptainId())
+                .name(team.getName())
+                .projectDescription("too early")
+                .projectType(new ProjectTypeDto().id(1L))
+                .studentIds(team.getStudents().stream().map(Student::getId).collect(Collectors.toUnmodifiableSet()))
+                .build();
+        delayTheSelectionOpening();
+
+        Assertions.assertThrows(ForbiddenException.class, () -> underTest.update(team.getId(), dto, captain));
     }
 }

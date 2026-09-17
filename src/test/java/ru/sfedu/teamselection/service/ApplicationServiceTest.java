@@ -2,6 +2,7 @@ package ru.sfedu.teamselection.service;
 
 import java.util.List;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +14,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.transaction.annotation.Transactional;
 import ru.sfedu.teamselection.BasicTestContainerTest;
+import ru.sfedu.teamselection.SelectionWindowFixture;
 import ru.sfedu.teamselection.TeamSelectionApplication;
 import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Team;
@@ -27,6 +29,7 @@ import ru.sfedu.teamselection.exception.BusinessException;
 import ru.sfedu.teamselection.exception.ConstraintViolationException;
 import ru.sfedu.teamselection.exception.ForbiddenException;
 import ru.sfedu.teamselection.repository.ApplicationRepository;
+import ru.sfedu.teamselection.repository.TrackRepository;
 import ru.sfedu.teamselection.repository.UserRepository;
 
 @SpringBootTest(classes = TeamSelectionApplication.class)
@@ -44,6 +47,19 @@ class ApplicationServiceTest extends BasicTestContainerTest {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private TrackRepository trackRepository;
+
+    /**
+     * Эти тесты про правила заявок, а не про окно набора: сид-трек закрылся в прошлом, поэтому окно
+     * открывается явно. Само окно проверяется в SelectionWindowServiceTest и в тестах ниже, которые
+     * закрывают его намеренно.
+     */
+    @BeforeEach
+    void openTheSelectionWindow() {
+        SelectionWindowFixture.open(trackRepository);
+    }
 
     @Test
     void findByIdOrElseThrow() {
@@ -1342,5 +1358,81 @@ class ApplicationServiceTest extends BasicTestContainerTest {
                 BusinessException.class,
                 () -> underTest.create(dto, userRepository.findById(3L).orElseThrow())
         );
+    }
+
+    // --- окно набора (#6) ---
+
+    private void closeTheSelectionWindow() {
+        SelectionWindowFixture.closed(trackRepository);
+    }
+
+    private void delayTheSelectionOpening() {
+        SelectionWindowFixture.notOpenYet(trackRepository);
+    }
+
+    private ApplicationCreationDto requestFromStudentFour() {
+        return ApplicationCreationDto.builder()
+                .status(ApplicationStatus.SENT)
+                .studentId(4L)
+                .teamId(1L)
+                .type(ApplicationType.REQUEST)
+                .build();
+    }
+
+    @Test
+    void aStudentCannotSendAnApplicationBeforeTheSelectionOpens() {
+        delayTheSelectionOpening();
+        ApplicationCreationDto dto = requestFromStudentFour();
+
+        ForbiddenException refusal = Assertions.assertThrows(ForbiddenException.class,
+                () -> underTest.create(dto, userRepository.findById(5L).orElseThrow()));
+        // отказ должен быть от окна, а не от правил заявок
+        Assertions.assertTrue(refusal.getMessage().contains("Набор"), refusal.getMessage());
+    }
+
+    @Test
+    void aStudentCannotSendAnApplicationAfterTheSelectionCloses() {
+        closeTheSelectionWindow();
+        ApplicationCreationDto dto = requestFromStudentFour();
+
+        ForbiddenException refusal = Assertions.assertThrows(ForbiddenException.class,
+                () -> underTest.create(dto, userRepository.findById(5L).orElseThrow()));
+        // отказ должен быть от окна, а не от правил заявок
+        Assertions.assertTrue(refusal.getMessage().contains("Набор"), refusal.getMessage());
+    }
+
+    @Test
+    void aStudentCannotAnswerAnApplicationAfterTheSelectionCloses() {
+        closeTheSelectionWindow();
+        ApplicationCreationDto dto = ApplicationCreationDto.builder()
+                .id(6L)
+                .status(ApplicationStatus.REJECTED)
+                .studentId(6L)
+                .teamId(2L)
+                .type(ApplicationType.REQUEST)
+                .build();
+
+        ForbiddenException refusal = Assertions.assertThrows(ForbiddenException.class,
+                () -> underTest.update(dto, userRepository.findById(4L).orElseThrow()));
+        // отказ должен быть от окна, а не от правил заявок
+        Assertions.assertTrue(refusal.getMessage().contains("Набор"), refusal.getMessage());
+    }
+
+
+    @Test
+    void aStudentCannotAnswerAnApplicationBeforeTheSelectionOpens() {
+        delayTheSelectionOpening();
+        ApplicationCreationDto dto = ApplicationCreationDto.builder()
+                .id(6L)
+                .status(ApplicationStatus.REJECTED)
+                .studentId(6L)
+                .teamId(2L)
+                .type(ApplicationType.REQUEST)
+                .build();
+
+        ForbiddenException refusal = Assertions.assertThrows(ForbiddenException.class,
+                () -> underTest.update(dto, userRepository.findById(4L).orElseThrow()));
+        // отказ должен быть от окна, а не от правил заявок
+        Assertions.assertTrue(refusal.getMessage().contains("Набор"), refusal.getMessage());
     }
 }

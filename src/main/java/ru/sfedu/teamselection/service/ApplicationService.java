@@ -47,6 +47,7 @@ public class ApplicationService {
     private final ApplicationMapper applicationMapper;
 
     private final ApplicationValidator applicationValidator;
+    private final SelectionWindowService selectionWindowService;
 
 
     public Application findByIdOrElseThrow(Long id) throws NotFoundException {
@@ -112,6 +113,7 @@ public class ApplicationService {
     @Transactional
     public Application update(ApplicationCreationDto dto, User sender) {
         log.info("PUT /applications — update dto={} by user={}", dto, sender.getId());
+        selectionWindowService.assertStudentMutationAllowed(sender);
         var existing = findByIdOrElseThrow(dto.getId());
         ValidationResult validationResult = applicationValidator.validateUpdate(dto.getStatus(), sender, existing);
         if (validationResult instanceof ValidationResult.Failure) {
@@ -140,6 +142,7 @@ public class ApplicationService {
     @Transactional
     public Application create(ApplicationCreationDto dto, User sender) {
         log.info("POST /applications — create dto={} by user={}", dto, sender.getId());
+        selectionWindowService.assertStudentMutationAllowed(sender);
         if (dto.getId() != null && applicationRepository.existsById(dto.getId())) {
             return update(dto, sender);
         }

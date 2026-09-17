@@ -7,6 +7,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import jakarta.validation.constraints.Min;
 import ru.sfedu.teamselection.dto.team.TeamDto;
+import ru.sfedu.teamselection.enums.SelectionWindowState;
 import ru.sfedu.teamselection.util.validation.DateRange;
 import ru.sfedu.teamselection.util.validation.ValidDateRange;
 
@@ -31,6 +32,9 @@ public class TrackDto implements DateRange {
     @Min(0)
     private Integer secondYearTarget;
     private Boolean active;
+
+    /** Где сегодняшний день относительно окна набора; фронт по нему решает, что показывать. */
+    private SelectionWindowState windowState;
     @Builder.Default
     private List<TeamDto> currentTeams = new ArrayList<>();
 }
