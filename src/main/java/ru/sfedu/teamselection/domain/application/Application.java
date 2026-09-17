@@ -12,12 +12,14 @@ import jakarta.persistence.InheritanceType;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotNull;
+import java.time.LocalDateTime;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.experimental.SuperBuilder;
+import org.hibernate.annotations.CreationTimestamp;
 import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Team;
 import ru.sfedu.teamselection.enums.ApplicationStatus;
@@ -52,6 +54,11 @@ public abstract class Application {
 
     @Column(insertable = false, updatable = false)
     private ApplicationType type;
+
+    /** Когда заявку отправили: по ней в обзоре считаются залежавшиеся заявки (#10). */
+    @Column(name = "created_at", nullable = false, updatable = false)
+    @CreationTimestamp
+    private LocalDateTime createdAt;
 
     /**
      * Статус хранится строкой в нижнем регистре — так он лежит в БД, так его пишет

@@ -93,8 +93,14 @@ public class Student {
     @Builder.Default
     private List<Technology> technologies = new ArrayList<>();
 
+    /**
+     * Каскад как у Team.applications: заявки принадлежат студенту и уходят вместе с ним. Без этого
+     * удаление лишней регистрации падало на внешнем ключе students_applications (#10).
+     */
     @Column
-    @OneToMany(mappedBy = "student")
+    @OneToMany(mappedBy = "student",
+            cascade = CascadeType.ALL,
+            orphanRemoval = true)
     @Builder.Default
     private List<Application> applications = new ArrayList<>();
 

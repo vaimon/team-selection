@@ -22,6 +22,7 @@ import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.UserDto;
 import ru.sfedu.teamselection.dto.student.StudentSummaryDto;
+import ru.sfedu.teamselection.exception.BusinessException;
 import ru.sfedu.teamselection.exception.NotFoundException;
 import ru.sfedu.teamselection.repository.StudentRepository;
 import ru.sfedu.teamselection.repository.UserRepository;
@@ -384,5 +385,47 @@ class UserServiceTest extends BasicTestContainerTest {
         User seeded = underTest.findByIdOrElseThrow(21L);
 
         Assertions.assertEquals("STUDENT", seeded.getRole().getName());
+    }
+
+    // --- защита последнего администратора (#10) ---
+
+    /**
+     * В сиде администратор ровно один — пользователь 1. Снять с него роль значит запереть систему:
+     * вернуть её было бы некому, а app.initial-admin-emails работает только при создании аккаунта (#17).
+     */
+    @Test
+    void theLastAdminCannotBeDemoted() {
+        Assertions.assertEquals(1, userRepository.countByRoleName("ADMIN"));
+
+        BusinessException refusal = Assertions.assertThrows(BusinessException.class,
+                () -> underTest.assignRole(1L, "STUDENT"));
+
+        Assertions.assertTrue(refusal.getMessage().contains("последний администратор"), refusal.getMessage());
+        Assertions.assertEquals("ADMIN", userRepository.findById(1L).orElseThrow().getRole().getName());
+    }
+
+    @Test
+    void withASecondAdminInPlaceTheFirstOneCanBeDemoted() {
+        underTest.assignRole(2L, "ADMIN");
+        Assertions.assertEquals(2, userRepository.countByRoleName("ADMIN"));
+
+        underTest.assignRole(1L, "STUDENT");
+
+        Assertions.assertEquals("STUDENT", userRepository.findById(1L).orElseThrow().getRole().getName());
+        Assertions.assertEquals(1, userRepository.countByRoleName("ADMIN"));
+    }
+
+    @Test
+    void theGuardDoesNotGetInTheWayOfGrantingAdmin() {
+        underTest.assignRole(3L, "ADMIN");
+
+        Assertions.assertEquals("ADMIN", userRepository.findById(3L).orElseThrow().getRole().getName());
+    }
+
+    @Test
+    void reassigningAdminToSomeoneWhoIsAlreadyAdminIsNotTreatedAsLosingIt() {
+        Assertions.assertDoesNotThrow(() -> underTest.assignRole(1L, "ADMIN"));
+
+        Assertions.assertEquals("ADMIN", userRepository.findById(1L).orElseThrow().getRole().getName());
     }
 }
