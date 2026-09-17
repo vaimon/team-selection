@@ -35,6 +35,7 @@ import ru.sfedu.teamselection.enums.ApplicationStatus;
 import ru.sfedu.teamselection.exception.BusinessException;
 import ru.sfedu.teamselection.exception.ConstraintViolationException;
 import ru.sfedu.teamselection.exception.ForbiddenException;
+import ru.sfedu.teamselection.exception.NotFoundException;
 import ru.sfedu.teamselection.repository.ApplicationRepository;
 import ru.sfedu.teamselection.repository.StudentRepository;
 import ru.sfedu.teamselection.repository.TeamRepository;
@@ -203,13 +204,9 @@ class TeamServiceTest extends BasicTestContainerTest {
         int membersBefore = beforeUpdateTeam.getStudents().size();
 
         TeamUpdateDto teamDto = TeamUpdateDto.builder()
-                .id(beforeUpdateTeam.getId())
-                .captainId(beforeUpdateTeam.getCaptainId())
                 .name(beforeUpdateTeam.getName())
                 .projectDescription("contacts")
                 .projectType(new ProjectTypeDto().id(1L))
-                .studentIds(beforeUpdateTeam.getStudents().stream().map(Student::getId).collect(Collectors.toUnmodifiableSet()))
-                .currentTrackId(2L) // ignored: a team never moves between selections
                 .build();
 
         Team actual = underTest.update(
@@ -229,15 +226,12 @@ class TeamServiceTest extends BasicTestContainerTest {
     void updateFromAdmin() {
         Team beforeUpdateTeam = teamRepository.findById(1L).orElseThrow();
         int membersBefore = beforeUpdateTeam.getStudents().size();
+        Long captainBefore = beforeUpdateTeam.getCaptainId();
 
         TeamUpdateDto teamDto = TeamUpdateDto.builder()
-                .id(beforeUpdateTeam.getId())
                 .name(beforeUpdateTeam.getName())
                 .projectDescription("contacts")
                 .projectType(new ProjectTypeDto().id(3L))
-                .captainId(12L) // should be updated
-                .studentIds(beforeUpdateTeam.getStudents().stream().map(Student::getId).collect(Collectors.toUnmodifiableSet()))
-                .currentTrackId(2L) // ignored
                 .build();
 
         Team actual = underTest.update(
@@ -248,7 +242,8 @@ class TeamServiceTest extends BasicTestContainerTest {
 
         Assertions.assertEquals(teamDto.getProjectDescription(), actual.getProjectDescription());
         Assertions.assertEquals(teamDto.getProjectType().getId(), actual.getProjectType().getId());
-        Assertions.assertEquals(12L, actual.getCaptainId());
+        // капитанство и состав через PUT больше не меняются даже администратором (#9)
+        Assertions.assertEquals(captainBefore, actual.getCaptainId());
         Assertions.assertEquals(1L, actual.getCurrentTrack().getId());
         Assertions.assertEquals(membersBefore, actual.getStudents().size());
     }
@@ -258,10 +253,8 @@ class TeamServiceTest extends BasicTestContainerTest {
         Team history = teamRepository.findById(2L).orElseThrow();
 
         TeamUpdateDto teamDto = TeamUpdateDto.builder()
-                .id(history.getId())
                 .name("renamed")
                 .projectType(new ProjectTypeDto().id(1L))
-                .captainId(history.getCaptainId())
                 .build();
 
         Assertions.assertThrows(BusinessException.class, () -> underTest.update(history.getId(), teamDto, getAdmin()));
@@ -277,11 +270,9 @@ class TeamServiceTest extends BasicTestContainerTest {
         Team beforeUpdateTeam = teamRepository.findById(2L).orElseThrow();
 
         TeamUpdateDto teamDto = TeamUpdateDto.builder()
-                .id(beforeUpdateTeam.getId())
                 .name("about self") // should not be updated
                 .projectDescription("contacts")
                 .projectType(new ProjectTypeDto().id(1L))
-                .currentTrackId(beforeUpdateTeam.getCurrentTrack().getId())
                 .build();
 
         Assertions.assertThrows(
@@ -621,12 +612,9 @@ class TeamServiceTest extends BasicTestContainerTest {
         Team team = teamRepository.findById(1L).orElseThrow();
         User captain = userOfStudent(team.getCaptainId());
         TeamUpdateDto dto = TeamUpdateDto.builder()
-                .id(team.getId())
-                .captainId(team.getCaptainId())
                 .name(team.getName())
                 .projectDescription("too late")
                 .projectType(new ProjectTypeDto().id(1L))
-                .studentIds(team.getStudents().stream().map(Student::getId).collect(Collectors.toUnmodifiableSet()))
                 .build();
         closeTheSelectionWindow();
 
@@ -637,12 +625,9 @@ class TeamServiceTest extends BasicTestContainerTest {
     void anAdminStillUpdatesTheTeamAfterTheSelectionCloses() {
         Team team = teamRepository.findById(1L).orElseThrow();
         TeamUpdateDto dto = TeamUpdateDto.builder()
-                .id(team.getId())
-                .captainId(team.getCaptainId())
                 .name(team.getName())
                 .projectDescription("admin cleanup")
                 .projectType(new ProjectTypeDto().id(1L))
-                .studentIds(team.getStudents().stream().map(Student::getId).collect(Collectors.toUnmodifiableSet()))
                 .build();
         closeTheSelectionWindow();
 
@@ -656,15 +641,227 @@ class TeamServiceTest extends BasicTestContainerTest {
         Team team = teamRepository.findById(1L).orElseThrow();
         User captain = userOfStudent(team.getCaptainId());
         TeamUpdateDto dto = TeamUpdateDto.builder()
-                .id(team.getId())
-                .captainId(team.getCaptainId())
                 .name(team.getName())
                 .projectDescription("too early")
                 .projectType(new ProjectTypeDto().id(1L))
-                .studentIds(team.getStudents().stream().map(Student::getId).collect(Collectors.toUnmodifiableSet()))
                 .build();
         delayTheSelectionOpening();
 
         Assertions.assertThrows(ForbiddenException.class, () -> underTest.update(team.getId(), dto, captain));
+    }
+
+    // --- операции с составом (#9) ---
+    // Команда 1 из сида: тимлид — студент 2 (пользователь 3), участник — студент 12 (пользователь 13);
+    // студент 1 (пользователь 2) в команде не состоит. Набор 1 активен.
+
+    private static final Long TEAM = 1L;
+    private static final Long CAPTAIN_STUDENT = 2L;
+    private static final Long MEMBER_STUDENT = 12L;
+    private static final Long OUTSIDER_STUDENT = 1L;
+
+    @Test
+    void theCaptainRemovesAMember() {
+        Team actual = underTest.removeMember(TEAM, MEMBER_STUDENT, userOfStudent(CAPTAIN_STUDENT));
+
+        Assertions.assertTrue(actual.getStudents().stream().noneMatch(s -> s.getId().equals(MEMBER_STUDENT)));
+        Student removed = studentRepository.findById(MEMBER_STUDENT).orElseThrow();
+        Assertions.assertFalse(removed.getHasTeam());
+        Assertions.assertNull(removed.getCurrentTeam());
+    }
+
+    @Test
+    void aPlainMemberCannotRemoveAnyone() {
+        Assertions.assertThrows(ForbiddenException.class,
+                () -> underTest.removeMember(TEAM, CAPTAIN_STUDENT, userOfStudent(MEMBER_STUDENT)));
+    }
+
+    @Test
+    void anOutsiderCannotRemoveAMember() {
+        Assertions.assertThrows(ForbiddenException.class,
+                () -> underTest.removeMember(TEAM, MEMBER_STUDENT, userOfStudent(OUTSIDER_STUDENT)));
+    }
+
+    @Test
+    void anAdminRemovesAMember() {
+        Team actual = underTest.removeMember(TEAM, MEMBER_STUDENT, getAdmin());
+
+        Assertions.assertTrue(actual.getStudents().stream().noneMatch(s -> s.getId().equals(MEMBER_STUDENT)));
+    }
+
+    @Test
+    void theCaptainCannotBeRemoved() {
+        Assertions.assertThrows(ConstraintViolationException.class,
+                () -> underTest.removeMember(TEAM, CAPTAIN_STUDENT, getAdmin()));
+    }
+
+    @Test
+    void removingSomeoneWhoIsNotAMemberIsNotFound() {
+        Assertions.assertThrows(NotFoundException.class,
+                () -> underTest.removeMember(TEAM, OUTSIDER_STUDENT, getAdmin()));
+    }
+
+    @Test
+    void aMemberLeavesTheTeam() {
+        Team actual = underTest.leave(TEAM, userOfStudent(MEMBER_STUDENT));
+
+        Assertions.assertTrue(actual.getStudents().stream().noneMatch(s -> s.getId().equals(MEMBER_STUDENT)));
+        Assertions.assertFalse(studentRepository.findById(MEMBER_STUDENT).orElseThrow().getHasTeam());
+    }
+
+    @Test
+    void theCaptainCannotLeaveAndIsToldWhatToDoInstead() {
+        ConstraintViolationException refusal = Assertions.assertThrows(ConstraintViolationException.class,
+                () -> underTest.leave(TEAM, userOfStudent(CAPTAIN_STUDENT)));
+
+        Assertions.assertTrue(refusal.getMessage().contains("капитанств"), refusal.getMessage());
+    }
+
+    @Test
+    void someoneWhoIsNotAMemberCannotLeave() {
+        Assertions.assertThrows(ForbiddenException.class,
+                () -> underTest.leave(TEAM, userOfStudent(OUTSIDER_STUDENT)));
+    }
+
+    @Test
+    void theCaptainHandsCaptaincyToAMember() {
+        Team actual = underTest.transferCaptaincy(TEAM, MEMBER_STUDENT, userOfStudent(CAPTAIN_STUDENT));
+
+        Assertions.assertEquals(MEMBER_STUDENT, actual.getCaptainId());
+        Assertions.assertTrue(studentRepository.findById(MEMBER_STUDENT).orElseThrow().getIsCaptain());
+        Assertions.assertFalse(studentRepository.findById(CAPTAIN_STUDENT).orElseThrow().getIsCaptain());
+    }
+
+    @Test
+    void aMemberCannotTakeCaptaincy() {
+        Assertions.assertThrows(ForbiddenException.class,
+                () -> underTest.transferCaptaincy(TEAM, MEMBER_STUDENT, userOfStudent(MEMBER_STUDENT)));
+    }
+
+    @Test
+    void anAdminHandsCaptaincyOver() {
+        Team actual = underTest.transferCaptaincy(TEAM, MEMBER_STUDENT, getAdmin());
+
+        Assertions.assertEquals(MEMBER_STUDENT, actual.getCaptainId());
+    }
+
+    @Test
+    void captaincyCannotGoToSomeoneOutsideTheTeam() {
+        Assertions.assertThrows(NotFoundException.class,
+                () -> underTest.transferCaptaincy(TEAM, OUTSIDER_STUDENT, getAdmin()));
+    }
+
+    @Test
+    void captaincyCannotGoToTheCurrentCaptain() {
+        Assertions.assertThrows(ConstraintViolationException.class,
+                () -> underTest.transferCaptaincy(TEAM, CAPTAIN_STUDENT, getAdmin()));
+    }
+
+    @Test
+    void theCaptainDisbandsTheTeam() {
+        underTest.disband(TEAM, userOfStudent(CAPTAIN_STUDENT));
+
+        Assertions.assertTrue(teamRepository.findById(TEAM).isEmpty());
+        Student formerMember = studentRepository.findById(MEMBER_STUDENT).orElseThrow();
+        Assertions.assertFalse(formerMember.getHasTeam());
+        Assertions.assertNull(formerMember.getCurrentTeam());
+    }
+
+    @Test
+    void aMemberCannotDisbandTheTeam() {
+        Assertions.assertThrows(ForbiddenException.class,
+                () -> underTest.disband(TEAM, userOfStudent(MEMBER_STUDENT)));
+    }
+
+    @Test
+    void anAdminDisbandsTheTeam() {
+        underTest.disband(TEAM, getAdmin());
+
+        Assertions.assertTrue(teamRepository.findById(TEAM).isEmpty());
+    }
+
+    // --- те же операции против закрытого окна (#6) ---
+
+    @Test
+    void removingAMemberIsRefusedAfterTheSelectionCloses() {
+        closeTheSelectionWindow();
+
+        Assertions.assertThrows(ForbiddenException.class,
+                () -> underTest.removeMember(TEAM, MEMBER_STUDENT, userOfStudent(CAPTAIN_STUDENT)));
+    }
+
+    @Test
+    void leavingIsRefusedAfterTheSelectionCloses() {
+        closeTheSelectionWindow();
+
+        Assertions.assertThrows(ForbiddenException.class,
+                () -> underTest.leave(TEAM, userOfStudent(MEMBER_STUDENT)));
+    }
+
+    @Test
+    void transferringCaptaincyIsRefusedAfterTheSelectionCloses() {
+        closeTheSelectionWindow();
+
+        Assertions.assertThrows(ForbiddenException.class,
+                () -> underTest.transferCaptaincy(TEAM, MEMBER_STUDENT, userOfStudent(CAPTAIN_STUDENT)));
+    }
+
+    @Test
+    void disbandingIsRefusedAfterTheSelectionCloses() {
+        closeTheSelectionWindow();
+
+        Assertions.assertThrows(ForbiddenException.class,
+                () -> underTest.disband(TEAM, userOfStudent(CAPTAIN_STUDENT)));
+    }
+
+    // Для leave админского варианта нет: администратор не состоит в команде, и после закрытия он
+    // получил бы отказ «вы не состоите в этой команде», а не подтверждение освобождения от окна.
+
+    @Test
+    void anAdminStillRemovesAMemberAfterTheSelectionCloses() {
+        closeTheSelectionWindow();
+
+        Team actual = underTest.removeMember(TEAM, MEMBER_STUDENT, getAdmin());
+
+        Assertions.assertTrue(actual.getStudents().stream().noneMatch(s -> s.getId().equals(MEMBER_STUDENT)));
+    }
+
+    @Test
+    void anAdminStillHandsCaptaincyOverAfterTheSelectionCloses() {
+        closeTheSelectionWindow();
+
+        Assertions.assertEquals(MEMBER_STUDENT, underTest.transferCaptaincy(TEAM, MEMBER_STUDENT, getAdmin()).getCaptainId());
+    }
+
+    @Test
+    void anAdminStillDisbandsTheTeamAfterTheSelectionCloses() {
+        closeTheSelectionWindow();
+
+        underTest.disband(TEAM, getAdmin());
+
+        Assertions.assertTrue(teamRepository.findById(TEAM).isEmpty());
+    }
+
+    // Команда 3 из сида живёт в завершённом наборе 3: тимлид — студент 17, участники 8, 14, 15, 16.
+    private static final Long ARCHIVED_TEAM = 3L;
+    private static final Long ARCHIVED_TEAM_CAPTAIN = 17L;
+    private static final Long ARCHIVED_TEAM_MEMBER = 8L;
+
+    @Test
+    void captaincyCannotBeHandedOverInAFinishedSelection() {
+        Assertions.assertThrows(BusinessException.class,
+                () -> underTest.transferCaptaincy(
+                        ARCHIVED_TEAM, ARCHIVED_TEAM_MEMBER, userOfStudent(ARCHIVED_TEAM_CAPTAIN)));
+    }
+
+    @Test
+    void anOutsiderCannotTransferCaptaincy() {
+        Assertions.assertThrows(ForbiddenException.class,
+                () -> underTest.transferCaptaincy(TEAM, MEMBER_STUDENT, userOfStudent(OUTSIDER_STUDENT)));
+    }
+
+    @Test
+    void anOutsiderCannotDisbandTheTeam() {
+        Assertions.assertThrows(ForbiddenException.class,
+                () -> underTest.disband(TEAM, userOfStudent(OUTSIDER_STUDENT)));
     }
 }

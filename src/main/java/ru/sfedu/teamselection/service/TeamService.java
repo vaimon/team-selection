@@ -1,9 +1,7 @@
 package ru.sfedu.teamselection.service;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Set;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -33,7 +31,6 @@ import ru.sfedu.teamselection.exception.NotFoundException;
 import ru.sfedu.teamselection.mapper.ProjectTypeMapper;
 import ru.sfedu.teamselection.mapper.TechnologyMapper;
 import ru.sfedu.teamselection.mapper.team.TeamCreationDtoMapper;
-import ru.sfedu.teamselection.mapper.team.TeamUpdateDtoMapper;
 import ru.sfedu.teamselection.repository.ProjectTypeRepository;
 import ru.sfedu.teamselection.repository.TeamRepository;
 import ru.sfedu.teamselection.repository.TechnologyRepository;
@@ -56,7 +53,6 @@ public class TeamService {
     private final TechnologyMapper technologyDtoMapper;
     private final ProjectTypeMapper projectTypeDtoMapper;
     private final TeamCreationDtoMapper teamCreationDtoMapper;
-    private final TeamUpdateDtoMapper teamUpdateDtoMapper;
 
     @Autowired
     @Lazy
@@ -277,39 +273,19 @@ public class TeamService {
     }
 
     /**
-     * Updates entity using data given in dto
-     * # WARNING: unsafe method. No business-logic validation is performed here depending on sender authorities.
-     * @param id id of entity
-     * @return updated entity
-     * @apiNote   possibly UNSAFE
+     * Меняет описательные поля команды: название, описание, тип проекта, технологии.
+     *
+     * <p>Состав и капитанство сюда не входят — для них есть отдельные операции (#9).
      */
     @Transactional
     public Team update(Long id,
                        TeamUpdateDto dto,
                        User sender) {
         selectionWindowService.assertStudentMutationAllowed(sender);
-       Team team = findByIdOrElseThrow(id);
-
-        boolean isAdmin = isAdmin(sender);
-        boolean isCaptain = sender.getId()
-                .equals(studentService.findByIdOrElseThrow(team.getCaptainId()).getUser().getId());
-
-        if (!isAdmin && !isCaptain) {
-            throw new ForbiddenException("Операция доступна только для тимлида команды или администратора");
-        }
+        Team team = findByIdOrElseThrow(id);
+        assertCaptainOrAdmin(team, sender);
         trackService.assertWritable(team.getCurrentTrack());
 
-        // Только admin может менять эти поля (трек команды не меняется: наборы изолированы):
-        if (isAdmin) {
-            if (!Objects.equals(team.getCaptainId(), dto.getCaptainId())) {
-                Student oldCaptain = studentService.findByIdOrElseThrow(team.getCaptainId());
-                oldCaptain.setIsCaptain(false);
-            }
-
-            team.setCaptainId(dto.getCaptainId());
-        }
-
-        // Всегда можно менять:
         team.setName(dto.getName());
         team.setProjectDescription(dto.getProjectDescription());
         team.setProjectType(projectTypeDtoMapper.mapToEntity(dto.getProjectType()));
@@ -321,29 +297,6 @@ public class TeamService {
                                 .collect(Collectors.toList())
                 )
         );
-
-        var newStudentIds = dto.getStudentIds();
-        Set<Long> currentIds = team.getStudents().stream()
-                .map(Student::getId)
-                .collect(Collectors.toSet());
-
-        for (Student s : new ArrayList<>(team.getStudents())) {
-            if (!newStudentIds.contains(s.getId())) {
-                removeStudentFromTeam(team, s);
-            }
-        }
-
-        for (Long sid : newStudentIds) {
-            if (!currentIds.contains(sid)) {
-                Student student = studentService.findByIdOrElseThrow(sid);
-                addStudentToTeam(team, student, isAdmin);
-            }
-        }
-
-        if (isAdmin) {
-            Student newCaptain = studentService.findByIdOrElseThrow(team.getCaptainId());
-            newCaptain.setIsCaptain(true);
-        }
 
         return teamRepository.save(team);
     }
@@ -395,5 +348,110 @@ public class TeamService {
 
     private boolean isAdmin(User user) {
         return user.getRole().getName().equals("ADMIN");
+    }
+
+    // --- операции с составом (#9) ---
+
+    /**
+     * Капитан или администратор исключает участника. Самого капитана исключить нельзя — он либо
+     * передаёт капитанство, либо распускает команду.
+     */
+    @Transactional
+    public Team removeMember(Long teamId, Long studentId, User sender) {
+        Team team = loadForMutation(teamId, sender);
+        assertCaptainOrAdmin(team, sender);
+
+        Student member = memberOrElseThrow(team, studentId);
+        removeStudentFromTeam(team, member);
+        return teamRepository.save(team);
+    }
+
+    /**
+     * Участник выходит сам. Капитану этот путь закрыт: уйдя, он оставил бы команду без тимлида.
+     */
+    @Transactional
+    public Team leave(Long teamId, User sender) {
+        Team team = loadForMutation(teamId, sender);
+
+        Student self = team.getStudents().stream()
+                .filter(student -> student.getUser().getId().equals(sender.getId()))
+                .findFirst()
+                .orElseThrow(() -> new ForbiddenException("Вы не состоите в этой команде"));
+
+        if (team.getCaptainId().equals(self.getId())) {
+            throw new ConstraintViolationException(
+                    "Тимлид не может выйти из команды: передайте капитанство или распустите команду");
+        }
+
+        removeStudentFromTeam(team, self);
+        return teamRepository.save(team);
+    }
+
+    /**
+     * Капитанство переходит действующему участнику команды.
+     */
+    @Transactional
+    public Team transferCaptaincy(Long teamId, Long studentId, User sender) {
+        Team team = loadForMutation(teamId, sender);
+        assertCaptainOrAdmin(team, sender);
+
+        if (team.getCaptainId().equals(studentId)) {
+            throw new ConstraintViolationException("Этот студент уже является тимлидом команды");
+        }
+        Student newCaptain = memberOrElseThrow(team, studentId);
+        Student oldCaptain = studentService.findByIdOrElseThrow(team.getCaptainId());
+
+        oldCaptain.setIsCaptain(false);
+        newCaptain.setIsCaptain(true);
+        team.setCaptainId(newCaptain.getId());
+        return teamRepository.save(team);
+    }
+
+    /**
+     * Капитан или администратор распускает команду: участники освобождаются, строка команды уходит.
+     *
+     * <p>Заявки команды удаляются вместе с ней — связь объявлена с orphanRemoval, — а не остаются
+     * в статусе CANCELLED. Для студента результат тот же: заявки больше нет.
+     */
+    @Transactional
+    public void disband(Long teamId, User sender) {
+        Team team = loadForMutation(teamId, sender);
+        assertCaptainOrAdmin(team, sender);
+
+        delete(teamId);
+    }
+
+
+    /**
+     * Общее начало операций с составом: окно набора, сама команда и запрет трогать завершённый набор.
+     *
+     * <p>Собрано в одном месте намеренно. Пока эти три строки копировались по методам, в
+     * transferCaptaincy потерялась проверка assertWritable, и капитанство в архивном наборе можно
+     * было передать. Проверки прав у операций разные, поэтому они остаются на местах вызова.
+     */
+    private Team loadForMutation(Long teamId, User sender) {
+        selectionWindowService.assertStudentMutationAllowed(sender);
+        Team team = findByIdOrElseThrow(teamId);
+        trackService.assertWritable(team.getCurrentTrack());
+        return team;
+    }
+
+    private Student memberOrElseThrow(Team team, Long studentId) {
+        return team.getStudents().stream()
+                .filter(student -> student.getId().equals(studentId))
+                .findFirst()
+                .orElseThrow(() -> new NotFoundException(
+                        "Студент с id `" + studentId + "` не состоит в этой команде"));
+    }
+
+    private void assertCaptainOrAdmin(Team team, User sender) {
+        if (!isAdmin(sender) && !isCaptain(team, sender)) {
+            throw new ForbiddenException("Операция доступна только для тимлида команды или администратора");
+        }
+    }
+
+    private boolean isCaptain(Team team, User sender) {
+        return sender.getId()
+                .equals(studentService.findByIdOrElseThrow(team.getCaptainId()).getUser().getId());
     }
 }

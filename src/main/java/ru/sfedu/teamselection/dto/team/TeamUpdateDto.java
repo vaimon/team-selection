@@ -5,9 +5,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import java.util.ArrayList;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -16,16 +14,17 @@ import lombok.Setter;
 import ru.sfedu.teamselection.dto.ProjectTypeDto;
 import ru.sfedu.teamselection.dto.TechnologyDto;
 
-
+/**
+ * Описательные поля команды. Состав и капитанство сюда не входят намеренно (#9): их меняют
+ * выделенные операции, поэтому на каждое изменение есть ровно один способ. Идентификатор команды
+ * берётся из пути.
+ */
 @Builder
 @Getter
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
 public class TeamUpdateDto {
-    @NotNull
-    private Long id;
-
     @NotBlank
     private String name;
 
@@ -41,20 +40,4 @@ public class TeamUpdateDto {
     @NotNull
     @Builder.Default
     private List<TechnologyDto> technologies = new ArrayList<>();
-
-    @NotNull
-    @JsonProperty("captain_id")
-    private Long captainId;
-
-    /**
-     * Здесь список только ID студентов.
-     * Jackson легко десериализует <code>List<Long></code>
-     */
-    @NotNull
-    @Builder.Default
-    private Set<Long> studentIds = new HashSet<>();
-
-    /** ID текущего трека **/
-    @JsonProperty("current_track_id")
-    private Long currentTrackId;
 }
