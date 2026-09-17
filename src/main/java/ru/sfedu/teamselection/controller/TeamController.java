@@ -36,6 +36,7 @@ import ru.sfedu.teamselection.dto.PageResponse;
 import ru.sfedu.teamselection.dto.student.StudentDto;
 import ru.sfedu.teamselection.dto.team.TeamCreationDto;
 import ru.sfedu.teamselection.dto.team.TeamDto;
+import ru.sfedu.teamselection.dto.team.TeamJoinPreviewDto;
 import ru.sfedu.teamselection.dto.team.TeamSearchOptionsDto;
 import ru.sfedu.teamselection.dto.team.TeamUpdateDto;
 import ru.sfedu.teamselection.mapper.PageResponseMapper;
@@ -43,6 +44,7 @@ import ru.sfedu.teamselection.mapper.student.StudentDtoMapper;
 import ru.sfedu.teamselection.mapper.team.TeamDtoMapper;
 import ru.sfedu.teamselection.service.ApplicationService;
 import ru.sfedu.teamselection.service.TeamExportService;
+import ru.sfedu.teamselection.service.TeamJoinLinkService;
 import ru.sfedu.teamselection.service.TeamService;
 import ru.sfedu.teamselection.service.UserService;
 
@@ -54,6 +56,7 @@ import ru.sfedu.teamselection.service.UserService;
 public class TeamController {
 
     private final TeamService teamService;
+    private final TeamJoinLinkService teamJoinLinkService;
     private final UserService userService;
     private final ApplicationService applicationService;
 
@@ -78,6 +81,9 @@ public class TeamController {
     public static final String LEAVE_TEAM = "/api/v1/teams/{teamId}/leave";
     public static final String TRANSFER_CAPTAINCY = "/api/v1/teams/{teamId}/captain/{studentId}";
     public static final String DISBAND_TEAM = "/api/v1/teams/{teamId}/disband";
+    public static final String JOIN_LINK = "/api/v1/teams/{teamId}/join-link";
+    public static final String DISABLE_JOIN_LINK = "/api/v1/teams/{teamId}/join-link/disable";
+    public static final String JOIN_BY_TOKEN = "/api/v1/teams/join/{token}";
 
     public static final String GET_SEARCH_OPTIONS = "/api/v1/teams/filters";
 
@@ -382,5 +388,93 @@ public class TeamController {
         User sender = userService.getCurrentUser();
         teamService.disband(teamId, sender);
         return ResponseEntity.noContent().build();
+    }
+
+    // --- ссылка-приглашение (#13) ---
+
+    @Operation(
+            method = "GET",
+            summary = "Текущая ссылка-приглашение команды",
+            description = "Доступно тимлиду команды и администратору. Пустой ответ — ссылки нет.",
+            parameters = {@Parameter(name = "teamId", description = "Id команды", in = ParameterIn.PATH)}
+    )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
+    @GetMapping(JOIN_LINK)
+    public ResponseEntity<String> getJoinLink(@PathVariable Long teamId) {
+        LOGGER.info("ENTER getJoinLink() endpoint");
+        User sender = userService.getCurrentUser();
+        return ResponseEntity.ok(teamJoinLinkService.currentToken(teamId, sender));
+    }
+
+    @Operation(
+            method = "POST",
+            summary = "Выпустить новую ссылку-приглашение",
+            description = "Доступно только тимлиду команды. Предыдущая ссылка перестаёт работать.",
+            parameters = {@Parameter(name = "teamId", description = "Id команды", in = ParameterIn.PATH)}
+    )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
+    @PostMapping(JOIN_LINK)
+    // без @Auditable намеренно: интерцептор пишет тело ответа в аудит целиком, а телом здесь
+    // является сам токен — он остался бы в таблице открытым текстом и пережил бы отзыв ссылки.
+    // Факт выпуска пишет сам сервис, без токена.
+    public ResponseEntity<String> issueJoinLink(@PathVariable Long teamId) {
+        LOGGER.info("ENTER issueJoinLink() endpoint");
+        User sender = userService.getCurrentUser();
+        return ResponseEntity.ok(teamJoinLinkService.issue(teamId, sender));
+    }
+
+    @Operation(
+            method = "POST",
+            summary = "Отключить ссылку-приглашение",
+            description = "Доступно тимлиду команды и администратору. Отключённая ссылка не оживает.",
+            parameters = {@Parameter(name = "teamId", description = "Id команды", in = ParameterIn.PATH)}
+    )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
+    @PostMapping(DISABLE_JOIN_LINK)
+    @Auditable(auditPoint = "Team.DisableJoinLink")
+    public ResponseEntity<Void> disableJoinLink(@PathVariable Long teamId) {
+        LOGGER.info("ENTER disableJoinLink() endpoint");
+        User sender = userService.getCurrentUser();
+        teamJoinLinkService.disable(teamId, sender);
+        return ResponseEntity.noContent().build();
+    }
+
+    @Operation(
+            method = "GET",
+            summary = "Превью команды по ссылке-приглашению",
+            description = """
+                Доступно любому вошедшему в систему, в том числе до заполнения анкеты:
+                иначе ссылка из чата упирается в 403 и человек не понимает, куда попал.
+
+                Имя тимлида возвращается только участникам текущего набора.
+                """,
+            parameters = {@Parameter(name = "token", description = "Токен ссылки", in = ParameterIn.PATH)}
+    )
+    @PreAuthorize("isAuthenticated()")
+    @GetMapping(JOIN_BY_TOKEN)
+    public ResponseEntity<TeamJoinPreviewDto> previewJoinLink(@PathVariable String token) {
+        LOGGER.info("ENTER previewJoinLink() endpoint");
+        User caller = userService.getCurrentUser();
+        return ResponseEntity.ok(teamJoinLinkService.preview(token, caller));
+    }
+
+    @Operation(
+            method = "POST",
+            summary = "Войти в команду по ссылке-приглашению",
+            description = """
+                Отдельного одобрения тимлида не требуется — ссылку дал он сам.
+
+                Остальные правила те же, что у принятой заявки: анкета заполнена, студент ещё не в
+                команде, есть место для его курса, набор открыт.
+                """,
+            parameters = {@Parameter(name = "token", description = "Токен ссылки", in = ParameterIn.PATH)}
+    )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
+    @PostMapping(JOIN_BY_TOKEN)
+    @Auditable(auditPoint = "Team.JoinByLink")
+    public ResponseEntity<TeamDto> joinByLink(@PathVariable String token) {
+        LOGGER.info("ENTER joinByLink() endpoint");
+        User caller = userService.getCurrentUser();
+        return ResponseEntity.ok(teamDtoMapper.mapToDto(teamJoinLinkService.join(token, caller)));
     }
 }

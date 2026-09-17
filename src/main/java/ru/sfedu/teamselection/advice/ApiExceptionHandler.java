@@ -16,6 +16,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import ru.sfedu.teamselection.dto.ErrorResponse;
 import ru.sfedu.teamselection.exception.BusinessException;
+import ru.sfedu.teamselection.exception.ConstraintViolationException;
 import ru.sfedu.teamselection.exception.ForbiddenException;
 
 @Slf4j
@@ -43,7 +44,10 @@ public class ApiExceptionHandler {
     @ExceptionHandler(value = {
             IllegalArgumentException.class,
             ConstraintDeclarationException.class,
-            BusinessException.class
+            BusinessException.class,
+            // Своё исключение бизнес-правил: без явной записи здесь его ловил catch-all и отдавал 500.
+            // «Студент уже состоит в команде» и «нет мест для курса» — это про запрос, а не про сервер.
+            ConstraintViolationException.class
     })
     public ResponseEntity<ErrorResponse> handleBadRequest(
             RuntimeException ex, HttpServletRequest req

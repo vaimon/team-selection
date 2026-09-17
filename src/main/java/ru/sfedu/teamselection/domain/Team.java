@@ -92,6 +92,10 @@ public class Team {
     @Builder.Default
     private List<Application> applications = new ArrayList<>();
 
+    /** Токен ссылки-приглашения; NULL — ссылки нет (#13). */
+    @Column(name = "join_token")
+    private String joinToken;
+
     @Column(name = "showcase_ref")
     private String showcaseRef;
 
