@@ -16,4 +16,6 @@ public interface ApplicationRepository extends JpaRepository<Application, Long>,
     List<Application> findByTeamId(Long teamId);
 
     Optional<Application> findByTeamIdAndStudentId(Long teamId, Long studentId);
+
+    List<Application> findAllByTeamCurrentTrackIdAndStatus(Long trackId, String status);
 }

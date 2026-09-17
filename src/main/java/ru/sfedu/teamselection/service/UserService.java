@@ -19,6 +19,7 @@ import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.UserDto;
 import ru.sfedu.teamselection.dto.UserSearchCriteria;
+import ru.sfedu.teamselection.exception.BusinessException;
 import ru.sfedu.teamselection.exception.NotFoundException;
 import ru.sfedu.teamselection.mapper.UserToStudentUpdateMapper;
 import ru.sfedu.teamselection.mapper.user.UserMapper;
@@ -194,6 +195,7 @@ public class UserService {
     public User assignRole(Long userId, String roleName) {
         User user = findByIdOrElseThrow(userId);
         Role role = findRoleByNameOrElseThrow(roleName);
+        assertNotTheLastAdmin(user, roleName);
 
         if (STUDENT_ROLE.equals(roleName) && !studentRepository.existsByUserId(userId)) {
             Student student = Student.builder()
@@ -205,6 +207,21 @@ public class UserService {
         user.setRole(role);
         userSessionService.updateUserAuthorities(user.getEmail());
         return userRepository.save(user);
+    }
+
+    /**
+     * Не даёт снять ADMIN с последнего администратора.
+     *
+     * <p>Вернуть роль было бы нечем: список {@code app.initial-admin-emails} действует только при
+     * создании аккаунта (#17), так что единственным выходом остался бы SQL на проде — ровно то,
+     * ради избавления от чего админка и делается.
+     */
+    private void assertNotTheLastAdmin(User user, String newRoleName) {
+        boolean losingAdmin = ADMIN_ROLE.equals(user.getRole().getName()) && !ADMIN_ROLE.equals(newRoleName);
+        if (losingAdmin && userRepository.countByRoleName(ADMIN_ROLE) <= 1) {
+            throw new BusinessException(
+                    "Это последний администратор: сначала назначьте другого, иначе выдать роль будет некому");
+        }
     }
 
     @Transactional

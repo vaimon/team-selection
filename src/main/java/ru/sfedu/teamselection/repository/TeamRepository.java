@@ -24,5 +24,7 @@ public interface TeamRepository extends JpaRepository<Team, Long>, JpaSpecificat
     List<Team> findAllByStudent(Long studentId);
 
     Optional<Team> findByJoinToken(String joinToken);
+
+    List<Team> findAllByCurrentTrackId(Long trackId);
 }
 

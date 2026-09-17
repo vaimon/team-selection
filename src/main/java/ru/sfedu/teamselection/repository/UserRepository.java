@@ -27,5 +27,7 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
 
     @Query("select u from User u join fetch u.role where lower(u.email) = lower(?1)")
     Optional<User> findByEmailFetchRole(String email);
+
+    long countByRoleName(String roleName);
 }
 

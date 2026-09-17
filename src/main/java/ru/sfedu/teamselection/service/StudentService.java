@@ -15,6 +15,7 @@ import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.sfedu.teamselection.domain.Student;
+import ru.sfedu.teamselection.domain.TeamComposition;
 import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.TechnologyDto;
@@ -214,6 +215,36 @@ public class StudentService {
         studentUpdateFactory.getHandler(permission).update(student, dto);
 
         return studentRepository.save(student);
+    }
+
+    /**
+     * Сообщение о переборе, если команда этого студента вышла за целевой состав по курсам.
+     *
+     * <p>Проверяется после правки, а не до: курс меняют потому, что он такой на самом деле, и
+     * отказ загнал бы администратора в тупик — чтобы исправить данные, пришлось бы сперва
+     * развалить команду. Перебор остаётся видимым, а не тихим, что issue и требует.
+     *
+     * <p>Читает студента заново в своей транзакции: состав команды ленивый, а вызывают этот метод
+     * уже после того, как правка закоммичена, — иначе ленивая коллекция не подгрузится.
+     *
+     * @return текст предупреждения либо {@code null}, если всё в пределах целевого состава
+     */
+    @Transactional(readOnly = true)
+    public String compositionWarning(Long studentId) {
+        Student student = findByIdOrElseThrow(studentId);
+        if (student.getCurrentTeam() == null) {
+            return null;
+        }
+        TeamComposition composition = TeamComposition.of(student.getCurrentTeam());
+        if (composition.firstYears() > composition.firstYearTarget()) {
+            return "В команде «%s» теперь %d первокурсников при цели %d".formatted(
+                    student.getCurrentTeam().getName(), composition.firstYears(), composition.firstYearTarget());
+        }
+        if (composition.secondYears() > composition.secondYearTarget()) {
+            return "В команде «%s» теперь %d старшекурсников при цели %d".formatted(
+                    student.getCurrentTeam().getName(), composition.secondYears(), composition.secondYearTarget());
+        }
+        return null;
     }
 
     @SuppressWarnings("checkstyle:MagicNumber")

@@ -13,6 +13,7 @@ import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import ru.sfedu.teamselection.dto.ErrorResponse;
 import ru.sfedu.teamselection.exception.BusinessException;
@@ -45,6 +46,10 @@ public class ApiExceptionHandler {
             IllegalArgumentException.class,
             ConstraintDeclarationException.class,
             BusinessException.class,
+            // Негодный query-параметр — тоже про запрос: до #10 в проекте не было ни одной валидации
+            // параметров, поэтому эти исключения никто не обрабатывал и они уходили в catch-all как 500.
+            HandlerMethodValidationException.class,
+            jakarta.validation.ConstraintViolationException.class,
             // Своё исключение бизнес-правил: без явной записи здесь его ловил catch-all и отдавал 500.
             // «Студент уже состоит в команде» и «нет мест для курса» — это про запрос, а не про сервер.
             ConstraintViolationException.class

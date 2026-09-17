@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import ru.sfedu.teamselection.config.security.Access;
 import ru.sfedu.teamselection.config.logging.Auditable;
+import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.PageResponse;
 import ru.sfedu.teamselection.dto.StudentUpdateDto;
@@ -317,7 +318,11 @@ public class StudentController {
         var permission = user.getRole().getName().equals("ADMIN")
                 ? PermissionLevelUpdate.ADMIN
                 : PermissionLevelUpdate.OWNER;
-        StudentDto result = studentDtoMapper.mapToDto(studentService.update(id, studentUpdateDto, permission));
+        Student updated = studentService.update(id, studentUpdateDto, permission);
+        StudentDto result = studentDtoMapper.mapToDto(updated);
+        if (permission == PermissionLevelUpdate.ADMIN) {
+            result.setCompositionWarning(studentService.compositionWarning(updated.getId()));
+        }
         return ResponseEntity.ok(result);
     }
 

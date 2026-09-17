@@ -33,4 +33,6 @@ public interface StudentRepository extends JpaRepository<Student, Long>, JpaSpec
     List<Student> findFreeOrInTeam(@Param("trackId") Long trackId,
                                    @Param("teamId" ) Long teamId);
 
+    List<Student> findAllByCurrentTrackId(Long trackId);
+
 }
