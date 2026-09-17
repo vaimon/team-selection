@@ -444,13 +444,14 @@ public class TeamService {
                         "Студент с id `" + studentId + "` не состоит в этой команде"));
     }
 
-    private void assertCaptainOrAdmin(Team team, User sender) {
+    /** Правило доступа к команде: её тимлид или администратор. Нужно и сервису ссылки-приглашения. */
+    void assertCaptainOrAdmin(Team team, User sender) {
         if (!isAdmin(sender) && !isCaptain(team, sender)) {
             throw new ForbiddenException("Операция доступна только для тимлида команды или администратора");
         }
     }
 
-    private boolean isCaptain(Team team, User sender) {
+    boolean isCaptain(Team team, User sender) {
         return sender.getId()
                 .equals(studentService.findByIdOrElseThrow(team.getCaptainId()).getUser().getId());
     }

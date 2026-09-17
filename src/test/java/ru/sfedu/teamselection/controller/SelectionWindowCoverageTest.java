@@ -38,7 +38,9 @@ class SelectionWindowCoverageTest {
             "TeamController#removeMember",
             "TeamController#leaveTeam",
             "TeamController#transferCaptaincy",
-            "TeamController#disbandTeam"
+            "TeamController#disbandTeam",
+            "TeamController#issueJoinLink",
+            "TeamController#joinByLink"
     );
 
     /** Ручки вне окна — с причиной, почему это осознанно. */
@@ -49,6 +51,8 @@ class SelectionWindowCoverageTest {
             Map.entry("StudentController#deleteStudent", "DELETE: только администратор (SecurityConfig)"),
             Map.entry("TeamController#deleteTeam", "DELETE: только администратор (SecurityConfig)"),
             Map.entry("TeamController#addStudentToTeam", "только администратор: он и разбирает составы после закрытия"),
+            Map.entry("TeamController#disableJoinLink",
+                    "отозвать утёкшую ссылку нужно и после закрытия набора; отключение ничего не открывает"),
             Map.entry("UserController#putUser", "правка своего профиля окном не запирается"),
             Map.entry("UserController#assignRole", "только администратор"),
             Map.entry("UserController#deleteUser", "DELETE: только администратор (SecurityConfig)"),

@@ -28,6 +28,7 @@ import ru.sfedu.teamselection.mapper.student.StudentDtoMapper;
 import ru.sfedu.teamselection.mapper.team.TeamDtoMapper;
 import ru.sfedu.teamselection.service.ApplicationService;
 import ru.sfedu.teamselection.service.TeamExportService;
+import ru.sfedu.teamselection.service.TeamJoinLinkService;
 import ru.sfedu.teamselection.service.TeamService;
 import ru.sfedu.teamselection.service.UserService;
 import ru.sfedu.teamselection.service.audit.AuditService;
@@ -39,6 +40,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
@@ -52,6 +54,8 @@ public class TeamControllerTest {
     private TeamExportService teamExportService;
     @MockitoBean(name = "teamService")
     private TeamService teamService;
+    @MockitoBean
+    private TeamJoinLinkService teamJoinLinkService;
     @MockitoBean
     private ApplicationService applicationService;
     @MockitoBean
@@ -422,5 +426,75 @@ public class TeamControllerTest {
                 .andExpect(status().isForbidden());
 
         Mockito.verify(teamService, Mockito.never()).leave(Mockito.any(), Mockito.any());
+    }
+
+    // --- ссылка-приглашение (#13) ---
+
+    @Test
+    public void thePreviewIsReachableBeforeTheQuestionnaireIsFilled() throws Exception {
+        Mockito.doReturn(ru.sfedu.teamselection.dto.team.TeamJoinPreviewDto.builder()
+                        .teamId(7L)
+                        .teamName("Tech Titans")
+                        .canJoin(false)
+                        .build())
+                .when(teamJoinLinkService).preview(Mockito.eq("tok"), Mockito.notNull());
+
+        // ровно тот человек, ради которого превью вынесено из матрицы #7: вошёл, анкеты ещё нет
+        mockMvc.perform(get("/api/v1/teams/join/tok")
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login()
+                                .oauth2User(studentWithoutQuestionnaire)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.teamName").value("Tech Titans"));
+    }
+
+    @Test
+    public void joiningByLinkStillRequiresTheQuestionnaire() throws Exception {
+        mockMvc.perform(post("/api/v1/teams/join/tok")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login()
+                                .oauth2User(studentWithoutQuestionnaire)))
+                .andExpect(status().isForbidden());
+
+        Mockito.verify(teamJoinLinkService, Mockito.never()).join(Mockito.any(), Mockito.any());
+    }
+
+    @Test
+    public void joiningByLinkRoutesTheToken() throws Exception {
+        Mockito.doReturn(genericTeam).when(teamJoinLinkService).join(Mockito.eq("tok"), Mockito.notNull());
+
+        mockMvc.perform(post("/api/v1/teams/join/tok")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
+                .andExpect(status().isOk());
+
+        Mockito.verify(teamJoinLinkService).join(Mockito.eq("tok"), Mockito.notNull());
+    }
+
+    @Test
+    public void issuingAndDisablingTheLinkRouteTheTeamId() throws Exception {
+        Mockito.doReturn("tok").when(teamJoinLinkService).issue(Mockito.eq(7L), Mockito.notNull());
+
+        mockMvc.perform(post("/api/v1/teams/7/join-link")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
+                .andExpect(status().isOk());
+        mockMvc.perform(post("/api/v1/teams/7/join-link/disable")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
+                .andExpect(status().isNoContent());
+
+        Mockito.verify(teamJoinLinkService).issue(Mockito.eq(7L), Mockito.notNull());
+        Mockito.verify(teamJoinLinkService).disable(Mockito.eq(7L), Mockito.notNull());
+    }
+
+    @Test
+    public void aBusinessConstraintOnJoiningComesBackAsA4xx() throws Exception {
+        Mockito.doThrow(new ru.sfedu.teamselection.exception.ConstraintViolationException("Студент уже состоит в команде"))
+                .when(teamJoinLinkService).join(Mockito.eq("tok"), Mockito.notNull());
+
+        mockMvc.perform(post("/api/v1/teams/join/tok")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
+                .andExpect(status().isBadRequest());
     }
 }
