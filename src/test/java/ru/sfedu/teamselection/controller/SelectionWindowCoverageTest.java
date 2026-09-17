@@ -34,7 +34,11 @@ class SelectionWindowCoverageTest {
             "ApplicationController#createApplication",
             "ApplicationController#update",
             "TeamController#createTeam",
-            "TeamController#updateTeam"
+            "TeamController#updateTeam",
+            "TeamController#removeMember",
+            "TeamController#leaveTeam",
+            "TeamController#transferCaptaincy",
+            "TeamController#disbandTeam"
     );
 
     /** Ручки вне окна — с причиной, почему это осознанно. */

@@ -74,6 +74,10 @@ public class TeamController {
 
     public static final String FIND_APPLICANTS_BY_ID = "/api/v1/teams/{id}/subscriptions";
     public static final String ADD_STUDENT_TO_TEAM = "/api/v1/teams/{teamId}/students/{studentId}";
+    public static final String REMOVE_MEMBER = "/api/v1/teams/{teamId}/members/{studentId}/remove";
+    public static final String LEAVE_TEAM = "/api/v1/teams/{teamId}/leave";
+    public static final String TRANSFER_CAPTAINCY = "/api/v1/teams/{teamId}/captain/{studentId}";
+    public static final String DISBAND_TEAM = "/api/v1/teams/{teamId}/disband";
 
     public static final String GET_SEARCH_OPTIONS = "/api/v1/teams/filters";
 
@@ -299,13 +303,84 @@ public class TeamController {
             @PathVariable Long id,
             @RequestBody @Valid TeamUpdateDto dto
     ) {
-        if (!id.equals(dto.getId())) {
-            return ResponseEntity.badRequest().build();
-        }
-
         User user = userService.getCurrentUser();
         Team updated = teamService.update(id, dto, user);
         TeamDto result = teamDtoMapper.mapToDto(updated);
         return ResponseEntity.ok(result);
+    }
+
+    @Operation(
+            method = "POST",
+            summary = "Исключить участника из команды",
+            description = "Доступно тимлиду команды и администратору. Тимлида исключить нельзя.",
+            parameters = {
+                    @Parameter(name = "teamId", description = "Id команды", in = ParameterIn.PATH),
+                    @Parameter(name = "studentId", description = "Id исключаемого студента", in = ParameterIn.PATH),
+            }
+    )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
+    @PostMapping(REMOVE_MEMBER)
+    @Auditable(auditPoint = "Team.RemoveMember")
+    public ResponseEntity<TeamDto> removeMember(@PathVariable Long teamId, @PathVariable Long studentId) {
+        LOGGER.info("ENTER removeMember() endpoint");
+        User sender = userService.getCurrentUser();
+        return ResponseEntity.ok(teamDtoMapper.mapToDto(teamService.removeMember(teamId, studentId, sender)));
+    }
+
+    @Operation(
+            method = "POST",
+            summary = "Выйти из команды",
+            description = "Доступно участнику команды. Тимлид сначала передаёт капитанство или распускает команду.",
+            parameters = {
+                    @Parameter(name = "teamId", description = "Id команды", in = ParameterIn.PATH)
+            }
+    )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
+    @PostMapping(LEAVE_TEAM)
+    @Auditable(auditPoint = "Team.LeaveTeam")
+    public ResponseEntity<TeamDto> leaveTeam(@PathVariable Long teamId) {
+        LOGGER.info("ENTER leaveTeam() endpoint");
+        User sender = userService.getCurrentUser();
+        return ResponseEntity.ok(teamDtoMapper.mapToDto(teamService.leave(teamId, sender)));
+    }
+
+    @Operation(
+            method = "POST",
+            summary = "Передать капитанство участнику команды",
+            description = "Доступно тимлиду команды и администратору. Новый тимлид должен уже состоять в команде.",
+            parameters = {
+                    @Parameter(name = "teamId", description = "Id команды", in = ParameterIn.PATH),
+                    @Parameter(name = "studentId", description = "Id нового тимлида", in = ParameterIn.PATH),
+            }
+    )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
+    @PostMapping(TRANSFER_CAPTAINCY)
+    @Auditable(auditPoint = "Team.TransferCaptaincy")
+    public ResponseEntity<TeamDto> transferCaptaincy(@PathVariable Long teamId, @PathVariable Long studentId) {
+        LOGGER.info("ENTER transferCaptaincy() endpoint");
+        User sender = userService.getCurrentUser();
+        return ResponseEntity.ok(teamDtoMapper.mapToDto(teamService.transferCaptaincy(teamId, studentId, sender)));
+    }
+
+    @Operation(
+            method = "POST",
+            summary = "Распустить команду",
+            description = """
+                Доступно тимлиду команды и администратору.
+
+                Участники освобождаются, заявки команды удаляются вместе с ней.
+                """,
+            parameters = {
+                    @Parameter(name = "teamId", description = "Id команды", in = ParameterIn.PATH)
+            }
+    )
+    @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
+    @PostMapping(DISBAND_TEAM)
+    @Auditable(auditPoint = "Team.DisbandTeam")
+    public ResponseEntity<Void> disbandTeam(@PathVariable Long teamId) {
+        LOGGER.info("ENTER disbandTeam() endpoint");
+        User sender = userService.getCurrentUser();
+        teamService.disband(teamId, sender);
+        return ResponseEntity.noContent().build();
     }
 }

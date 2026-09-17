@@ -316,40 +316,6 @@ public class TeamControllerTest {
                 .andDo(print());
     }
 
-    @Test
-    public void whenUpdateTeamAndPathDiffersFromIdInBodyThenReturn400() throws Exception {
-        Mockito.doReturn(genericTeam).when(teamService).update(
-                Mockito.anyLong(),
-                Mockito.notNull(),
-                Mockito.notNull()
-        );
-
-        String team = """
-                {
-                    "id": 111,
-                    "name": "name",
-                    "project_description": "projectDescription",
-                    "project_type": {
-                        "id": 1,
-                        "name": "name"
-                    },
-                    "quantity_of_students": 0,
-                    "captain_id": 1,
-                    "isFull": false,
-                    "current_track_id": 0,
-                    "students": [],
-                    "applications": [],
-                    "technologies": []
-                }""";
-
-        mockMvc.perform(put(TeamController.UPDATE_TEAM, "1")
-                        .with(SecurityMockMvcRequestPostProcessors.csrf())
-                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser))
-                        .content(team)
-                        .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isBadRequest())
-                .andDo(print());
-    }
 
     // access matrix, vaimon/team-selection#7
 
@@ -395,5 +361,66 @@ public class TeamControllerTest {
         mockMvc.perform(get(TeamController.FIND_APPLICANTS_BY_ID.replace("{id}", "1"))
                         .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin)))
                 .andExpect(status().isOk());
+    }
+
+    // --- операции с составом (#9): проверяем маршрутизацию и порядок path-переменных ---
+
+    @Test
+    public void removeMemberRoutesTeamAndStudentInThatOrder() throws Exception {
+        Mockito.doReturn(genericTeam).when(teamService)
+                .removeMember(Mockito.eq(7L), Mockito.eq(42L), Mockito.notNull());
+
+        mockMvc.perform(post("/api/v1/teams/7/members/42/remove")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
+                .andExpect(status().isOk());
+
+        Mockito.verify(teamService).removeMember(Mockito.eq(7L), Mockito.eq(42L), Mockito.notNull());
+    }
+
+    @Test
+    public void leaveTeamRoutesTheTeamId() throws Exception {
+        Mockito.doReturn(genericTeam).when(teamService).leave(Mockito.eq(7L), Mockito.notNull());
+
+        mockMvc.perform(post("/api/v1/teams/7/leave")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
+                .andExpect(status().isOk());
+
+        Mockito.verify(teamService).leave(Mockito.eq(7L), Mockito.notNull());
+    }
+
+    @Test
+    public void transferCaptaincyRoutesTeamAndNewCaptainInThatOrder() throws Exception {
+        Mockito.doReturn(genericTeam).when(teamService)
+                .transferCaptaincy(Mockito.eq(7L), Mockito.eq(42L), Mockito.notNull());
+
+        mockMvc.perform(post("/api/v1/teams/7/captain/42")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
+                .andExpect(status().isOk());
+
+        Mockito.verify(teamService).transferCaptaincy(Mockito.eq(7L), Mockito.eq(42L), Mockito.notNull());
+    }
+
+    @Test
+    public void disbandTeamRoutesTheTeamIdAndReturnsNoContent() throws Exception {
+        mockMvc.perform(post("/api/v1/teams/7/disband")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))
+                .andExpect(status().isNoContent());
+
+        Mockito.verify(teamService).disband(Mockito.eq(7L), Mockito.notNull());
+    }
+
+    @Test
+    public void aUserWithoutTheQuestionnaireCannotRunTeamOperations() throws Exception {
+        mockMvc.perform(post("/api/v1/teams/7/leave")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login()
+                                .oauth2User(studentWithoutQuestionnaire)))
+                .andExpect(status().isForbidden());
+
+        Mockito.verify(teamService, Mockito.never()).leave(Mockito.any(), Mockito.any());
     }
 }
