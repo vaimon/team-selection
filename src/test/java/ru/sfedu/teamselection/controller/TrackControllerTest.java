@@ -18,6 +18,7 @@ import ru.sfedu.teamselection.domain.Role;
 import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.track.TrackDto;
+import ru.sfedu.teamselection.enums.SelectionWindowState;
 import ru.sfedu.teamselection.enums.TrackType;
 import ru.sfedu.teamselection.exception.CustomExceptionHandler;
 import ru.sfedu.teamselection.exception.NotFoundException;
@@ -292,7 +293,7 @@ public class TrackControllerTest {
         mockMvc.perform(post("/api/v1/tracks/new-selection")
                         .with(SecurityMockMvcRequestPostProcessors.csrf())
                         .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin))
-                        .content("{\"name\": \"Отбор 2027\", \"startDate\": \"2027-10-01\"}")
+                        .content("{\"name\": \"Отбор 2027\", \"startDate\": \"2027-10-01\", \"endDate\": \"2027-10-31\"}")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
 
@@ -304,7 +305,7 @@ public class TrackControllerTest {
         mockMvc.perform(post("/api/v1/tracks/new-selection")
                         .with(SecurityMockMvcRequestPostProcessors.csrf())
                         .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser))
-                        .content("{}")
+                        .content("{\"name\": \"Отбор 2027\", \"startDate\": \"2027-10-01\", \"endDate\": \"2027-10-31\"}")
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden());
 
@@ -389,5 +390,49 @@ public class TrackControllerTest {
                 .andExpect(status().isBadRequest());
 
         Mockito.verify(trackService, Mockito.never()).startNewSelection(Mockito.any());
+    }
+
+    @Test
+    public void whenStartNewSelectionWithoutDatesThenReturn400() throws Exception {
+        mockMvc.perform(post("/api/v1/tracks/new-selection")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin))
+                        .content("{\"name\": \"Отбор без дат\"}")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        Mockito.verify(trackService, Mockito.never()).startNewSelection(Mockito.any());
+    }
+
+    @Test
+    public void whenStartNewSelectionWithoutTheEndDateThenReturn400() throws Exception {
+        mockMvc.perform(post("/api/v1/tracks/new-selection")
+                        .with(SecurityMockMvcRequestPostProcessors.csrf())
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin))
+                        .content("{\"name\": \"Отбор 2027\", \"startDate\": \"2027-10-01\"}")
+                        .contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isBadRequest());
+
+        Mockito.verify(trackService, Mockito.never()).startNewSelection(Mockito.any());
+    }
+
+    // тот же пользователь, что в studentWithoutQuestionnaireSeesTheCurrentSelection...: студент без
+    // анкеты обязан видеть состояние окна, иначе ему нечего показать на странице набора (#7 + #6)
+    @Test
+    public void whenFindCurrentTrackThenTheWindowStateIsOnTheWire() throws Exception {
+        Track active = Track.builder().id(7L).name("Отбор 2026").active(true).build();
+        Mockito.doReturn(active).when(trackService).getActive();
+        Mockito.doReturn(TrackDto.builder()
+                        .id(7L)
+                        .name("Отбор 2026")
+                        .active(true)
+                        .windowState(SelectionWindowState.CLOSED)
+                        .build())
+                .when(TrackDtoMapper).mapToDtoWithoutTeams(active);
+
+        mockMvc.perform(get("/api/v1/tracks/current")
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(studentWithoutQuestionnaire)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.windowState").value("CLOSED"));
     }
 }

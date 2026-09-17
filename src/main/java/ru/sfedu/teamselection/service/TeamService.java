@@ -48,6 +48,7 @@ public class TeamService {
     private final ProjectTypeRepository projectTypeRepository;
 
     private final TrackService trackService;
+    private final SelectionWindowService selectionWindowService;
     @Lazy
     @Autowired
     private StudentService studentService;
@@ -121,6 +122,7 @@ public class TeamService {
      */
     @Transactional(isolation = Isolation.REPEATABLE_READ)
     public Team create(TeamCreationDto dto, User sender) {
+        selectionWindowService.assertStudentMutationAllowed(sender);
         String name    = dto.getName();
         // teams are created only in the current selection; a client-sent track id is ignored
         Track track    = trackService.getActive();
@@ -285,6 +287,7 @@ public class TeamService {
     public Team update(Long id,
                        TeamUpdateDto dto,
                        User sender) {
+        selectionWindowService.assertStudentMutationAllowed(sender);
        Team team = findByIdOrElseThrow(id);
 
         boolean isAdmin = isAdmin(sender);

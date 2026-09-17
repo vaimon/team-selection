@@ -1,11 +1,9 @@
 package ru.sfedu.teamselection.repository;
 
-import java.time.LocalDate;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -20,15 +18,10 @@ public interface StudentRepository extends JpaRepository<Student, Long>, JpaSpec
     boolean existsByUserId(Long userId);
 
     boolean existsByUserIdAndCurrentTrackActiveTrue(Long userId);
+    // Здесь была deactivateCaptainsWithExpiredTracks: ночная джоба распускала все команды набора в
+    // первую же полночь после end_date. После закрытия набора команды больше не трогают автоматически —
+    // неполные составы разбирает администратор (#6).
 
-    @Modifying(clearAutomatically = true)
-    @Query("""
-        UPDATE Student s
-        SET s.isCaptain = false, s.currentTeam = null, hasTeam = false
-        WHERE s.currentTrack IS NOT NULL
-        AND s.currentTrack.endDate < :currentDate
-    """)
-    int deactivateCaptainsWithExpiredTracks(LocalDate currentDate);
 
     @Query("""
   select s
