@@ -9,6 +9,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -16,7 +17,9 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import ru.sfedu.teamselection.dto.ErrorResponse;
+import ru.sfedu.teamselection.enums.BoardConflict;
 import ru.sfedu.teamselection.exception.BusinessException;
+import ru.sfedu.teamselection.exception.ConflictException;
 import ru.sfedu.teamselection.exception.ConstraintViolationException;
 import ru.sfedu.teamselection.exception.ForbiddenException;
 
@@ -67,6 +70,35 @@ public class ApiExceptionHandler {
     ) {
         log.error(ex.getMessage());
         return buildResponse(HttpStatus.FORBIDDEN, ex, req);
+    }
+
+    @ExceptionHandler(ConflictException.class)
+    public ResponseEntity<ErrorResponse> handleConflict(ConflictException ex, HttpServletRequest req) {
+        log.info("Conflict {} on {} {}: {}", ex.getCode(), req.getMethod(), req.getRequestURI(), ex.getMessage());
+        return conflict(ex.getCode(), ex.getMessage(), req);
+    }
+
+    /**
+     * Сервис сверяет версию до изменений, а это исключение ловит гонку между чтением и записью.
+     * Для клиента разницы нет: команду изменили без него.
+     */
+    @ExceptionHandler(ObjectOptimisticLockingFailureException.class)
+    public ResponseEntity<ErrorResponse> handleOptimisticLock(
+            ObjectOptimisticLockingFailureException ex, HttpServletRequest req
+    ) {
+        log.info("Optimistic lock conflict on {} {}: {}", req.getMethod(), req.getRequestURI(), ex.getMessage());
+        return conflict(BoardConflict.STALE_VERSION, "Команду изменили, пока вы с ней работали. Обновите доску", req);
+    }
+
+    private ResponseEntity<ErrorResponse> conflict(BoardConflict code, String message, HttpServletRequest req) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.builder()
+                .timestamp(OffsetDateTime.now().toString())
+                .status(HttpStatus.CONFLICT.value())
+                .error(HttpStatus.CONFLICT.getReasonPhrase())
+                .message(message)
+                .code(code.name())
+                .path(req.getRequestURI())
+                .build());
     }
 
     @ExceptionHandler(HttpMessageNotReadableException.class)
