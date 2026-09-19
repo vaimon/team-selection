@@ -47,7 +47,7 @@ public class SimpleAuthenticationSuccessHandler extends SimpleUrlAuthenticationS
      * Admins land in the admin area, participants of the current selection in the catalog, everyone else on
      * the participant questionnaire.
      */
-    String targetPath(String email) {
+    public String targetPath(String email) {
         Set<String> roles = currentAuthoritiesResolver.resolve(email).orElse(Set.of()).stream()
                 .map(GrantedAuthority::getAuthority)
                 .collect(Collectors.toSet());
