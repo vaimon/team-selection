@@ -110,9 +110,20 @@ class SelectionWindowServiceTest {
 
     @Test
     void anAdminStillMutatesAfterTheClose() {
+        Mockito.doReturn(track(START, END)).when(trackService).getActive();
+
         assertThatCode(() -> serviceAt(END.plusDays(1)).assertStudentMutationAllowed(userWithRole("ADMIN")))
                 .doesNotThrowAnyException();
-        // администратор освобождён до чтения набора — за активным треком даже не ходят
-        Mockito.verify(trackService, Mockito.never()).getActive();
+    }
+
+    /** От окна администратор освобождён, от передачи в кабинет ПД — нет (#15). */
+    @Test
+    void anAdminIsStillCheckedForAHandOver() {
+        Track active = track(START, END);
+        Mockito.doReturn(active).when(trackService).getActive();
+
+        serviceAt(END.plusDays(1)).assertStudentMutationAllowed(userWithRole("ADMIN"));
+
+        Mockito.verify(trackService).assertNotHandedOver(active);
     }
 }

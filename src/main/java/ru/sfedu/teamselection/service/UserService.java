@@ -148,6 +148,10 @@ public class UserService {
         if (dto.getId() != null) {
             // --- обновление ---
             User existing = findByIdOrElseThrow(dto.getId());
+            // Правка пользователя правит и его анкету, а ФИО и почта уже в составе, переданном в core (#15).
+            if (existing.getStudent() != null && existing.getStudent().getCurrentTrack() != null) {
+                trackService.assertNotHandedOver(existing.getStudent().getCurrentTrack());
+            }
 
             if (permission == PermissionLevelUpdate.ADMIN) {
                 // обновляем роль

@@ -32,7 +32,7 @@ import ru.sfedu.teamselection.dto.board.CompositionBoardDto.StudentCard;
 import ru.sfedu.teamselection.dto.board.CompositionBoardDto.TeamCard;
 import ru.sfedu.teamselection.dto.board.CompositionBoardDto.TeamStatus;
 import ru.sfedu.teamselection.enums.ApplicationStatus;
-import ru.sfedu.teamselection.enums.BoardConflict;
+import ru.sfedu.teamselection.enums.ConflictReason;
 import ru.sfedu.teamselection.exception.ConflictException;
 import ru.sfedu.teamselection.repository.StudentRepository;
 import ru.sfedu.teamselection.repository.TeamRepository;
@@ -109,7 +109,7 @@ class CompositionBoardServiceTest extends BasicTestContainerTest {
         return new BoardMoveRequest(studentId, from.id(), from.version(), null, null, false, newLeadId);
     }
 
-    private void assertRefused(BoardConflict expected, Runnable action) {
+    private void assertRefused(ConflictReason expected, Runnable action) {
         ConflictException refusal = Assertions.assertThrows(ConflictException.class, action::run);
         Assertions.assertEquals(expected, refusal.getCode());
     }
@@ -296,7 +296,7 @@ class CompositionBoardServiceTest extends BasicTestContainerTest {
         TeamCard team = team(underTest.setTargets(TEAM, new BoardTargetsRequest(
                 team(underTest.board(), TEAM).version(), 1, null)), TEAM);
 
-        assertRefused(BoardConflict.OVER_TARGET, () -> underTest.move(fromPool(FREE_FIRST_YEAR, team, false), admin));
+        assertRefused(ConflictReason.OVER_TARGET, () -> underTest.move(fromPool(FREE_FIRST_YEAR, team, false), admin));
 
         TeamCard over = team(underTest.move(fromPool(FREE_FIRST_YEAR, team, true), admin), TEAM);
         Assertions.assertEquals(2, over.firstYears());
@@ -325,7 +325,7 @@ class CompositionBoardServiceTest extends BasicTestContainerTest {
     void movingTheLeadWithoutASuccessorIsRefused() {
         TeamCard team = team(underTest.board(), TEAM);
 
-        assertRefused(BoardConflict.LEAD_NEEDS_SUCCESSOR, () -> underTest.move(toPool(LEAD, team, null), admin));
+        assertRefused(ConflictReason.LEAD_NEEDS_SUCCESSOR, () -> underTest.move(toPool(LEAD, team, null), admin));
 
         Assertions.assertEquals(Set.of(LEAD, SECOND_YEAR_MEMBER), ids(team(underTest.board(), TEAM).members()));
     }
@@ -359,7 +359,7 @@ class CompositionBoardServiceTest extends BasicTestContainerTest {
         TeamCard alone = team(underTest.move(toPool(SECOND_YEAR_MEMBER, team(underTest.board(), TEAM), null), admin),
                 TEAM);
 
-        assertRefused(BoardConflict.LEAD_NEEDS_SUCCESSOR, () -> underTest.move(toPool(LEAD, alone, null), admin));
+        assertRefused(ConflictReason.LEAD_NEEDS_SUCCESSOR, () -> underTest.move(toPool(LEAD, alone, null), admin));
     }
 
     @Test
@@ -394,7 +394,7 @@ class CompositionBoardServiceTest extends BasicTestContainerTest {
         BoardMoveRequest stale = new BoardMoveRequest(
                 SECOND_YEAR_MEMBER, TEAM, team.version() - 1, null, null, false, null);
 
-        assertRefused(BoardConflict.STALE_VERSION, () -> underTest.move(stale, admin));
+        assertRefused(ConflictReason.STALE_VERSION, () -> underTest.move(stale, admin));
 
         Assertions.assertEquals(Set.of(LEAD, SECOND_YEAR_MEMBER), ids(team(underTest.board(), TEAM).members()));
     }
@@ -408,7 +408,7 @@ class CompositionBoardServiceTest extends BasicTestContainerTest {
         BoardMoveRequest stale = new BoardMoveRequest(
                 6L, from.id(), from.version(), to.id(), to.version() + 1, false, null);
 
-        assertRefused(BoardConflict.STALE_VERSION, () -> underTest.move(stale, admin));
+        assertRefused(ConflictReason.STALE_VERSION, () -> underTest.move(stale, admin));
 
         Assertions.assertEquals(Set.of(4L, 6L), ids(team(underTest.board(), SECOND_TEAM).members()));
     }
@@ -417,11 +417,11 @@ class CompositionBoardServiceTest extends BasicTestContainerTest {
     void everyOtherBoardActionChecksTheVersionToo() {
         long stale = team(underTest.board(), TEAM).version() + 1;
 
-        assertRefused(BoardConflict.STALE_VERSION,
+        assertRefused(ConflictReason.STALE_VERSION,
                 () -> underTest.setTargets(TEAM, new BoardTargetsRequest(stale, 1, 1)));
-        assertRefused(BoardConflict.STALE_VERSION,
+        assertRefused(ConflictReason.STALE_VERSION,
                 () -> underTest.changeLead(TEAM, new BoardLeadRequest(stale, SECOND_YEAR_MEMBER), admin));
-        assertRefused(BoardConflict.STALE_VERSION,
+        assertRefused(ConflictReason.STALE_VERSION,
                 () -> underTest.dissolve(TEAM, new BoardVersionRequest(stale), admin));
     }
 }

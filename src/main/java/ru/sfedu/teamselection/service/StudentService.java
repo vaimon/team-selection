@@ -157,10 +157,11 @@ public class StudentService {
             // registering would silently replace the ADMIN role with STUDENT
             throw new BusinessException("Администратор не участвует в наборе, анкета участника не нужна");
         }
+        Track active = trackService.getActive();
+        trackService.assertNotHandedOver(active);
         var role = roleRepository.findByName("STUDENT")
                 .orElseThrow(() -> new NotFoundException("Роль STUDENT не найдена"));
         user.setRole(role);
-        Track active = trackService.getActive();
         List<Long> technologyIds = dto.getTechnologies().stream().map(TechnologyDto::getId).toList();
 
         if (!studentRepository.existsByUserId(user.getId())) {
@@ -195,6 +196,7 @@ public class StudentService {
     @Transactional
     public void delete(Long id) {
         Student st = findByIdOrElseThrow(id);
+        assertRosterEditable(st);
         if (Boolean.TRUE.equals(st.getHasTeam())) {
             teamService.removeStudentFromTeam(st.getCurrentTeam(), st);
         }
@@ -211,10 +213,18 @@ public class StudentService {
     @Transactional
     public Student update(Long id, StudentUpdateDto dto, PermissionLevelUpdate permission) {
         Student student = findByIdOrElseThrow(id);
+        assertRosterEditable(student);
 
         studentUpdateFactory.getHandler(permission).update(student, dto);
 
         return studentRepository.save(student);
+    }
+
+    /** Студент переданного набора — уже часть состава в core: ни правки, ни удаления здесь (#15). */
+    private void assertRosterEditable(Student student) {
+        if (student.getCurrentTrack() != null) {
+            trackService.assertNotHandedOver(student.getCurrentTrack());
+        }
     }
 
     /**

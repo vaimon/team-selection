@@ -69,12 +69,14 @@ public class TeamJoinLinkService {
 
     /**
      * Гасит ссылку. Окном намеренно не ограничено: отозвать утёкшую ссылку нужно и после закрытия
-     * набора, а отключение ничего не открывает.
+     * набора, а отключение ничего не открывает. После передачи в кабинет ПД ссылка и так мертва:
+     * вступить по ней нельзя, а трогать команду переданного набора нельзя никому.
      */
     @Transactional
     public void disable(Long teamId, User sender) {
         Team team = teamService.findByIdOrElseThrow(teamId);
         teamService.assertCaptainOrAdmin(team, sender);
+        trackService.assertNotHandedOver(team.getCurrentTrack());
 
         team.setJoinToken(null);
         teamRepository.save(team);

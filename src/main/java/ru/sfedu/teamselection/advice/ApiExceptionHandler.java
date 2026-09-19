@@ -17,7 +17,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import ru.sfedu.teamselection.dto.ErrorResponse;
-import ru.sfedu.teamselection.enums.BoardConflict;
+import ru.sfedu.teamselection.enums.ConflictReason;
 import ru.sfedu.teamselection.exception.BusinessException;
 import ru.sfedu.teamselection.exception.ConflictException;
 import ru.sfedu.teamselection.exception.ConstraintViolationException;
@@ -87,10 +87,10 @@ public class ApiExceptionHandler {
             ObjectOptimisticLockingFailureException ex, HttpServletRequest req
     ) {
         log.info("Optimistic lock conflict on {} {}: {}", req.getMethod(), req.getRequestURI(), ex.getMessage());
-        return conflict(BoardConflict.STALE_VERSION, "Команду изменили, пока вы с ней работали. Обновите доску", req);
+        return conflict(ConflictReason.STALE_VERSION, "Команду изменили, пока вы с ней работали. Обновите доску", req);
     }
 
-    private ResponseEntity<ErrorResponse> conflict(BoardConflict code, String message, HttpServletRequest req) {
+    private ResponseEntity<ErrorResponse> conflict(ConflictReason code, String message, HttpServletRequest req) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(ErrorResponse.builder()
                 .timestamp(OffsetDateTime.now().toString())
                 .status(HttpStatus.CONFLICT.value())

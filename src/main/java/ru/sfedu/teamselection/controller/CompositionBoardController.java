@@ -26,7 +26,7 @@ import ru.sfedu.teamselection.service.UserService;
 
 /**
  * Доска состава (#14). Каждое изменение возвращает доску целиком — со свежими версиями команд для
- * следующего действия. Отказы по состоянию — 409 с полем code (BoardConflict).
+ * следующего действия. Отказы по состоянию — 409 с полем code (ConflictReason).
  */
 @Slf4j
 @RestController

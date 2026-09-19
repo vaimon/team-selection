@@ -48,6 +48,7 @@ public class ApplicationService {
 
     private final ApplicationValidator applicationValidator;
     private final SelectionWindowService selectionWindowService;
+    private final TrackService trackService;
 
 
     public Application findByIdOrElseThrow(Long id) throws NotFoundException {
@@ -83,8 +84,12 @@ public class ApplicationService {
      * Deletes application by id
      * @param id id of the application
      */
+    @Transactional
     public void delete(Long id) {
-        applicationRepository.deleteById(id);
+        applicationRepository.findById(id).ifPresent(application -> {
+            trackService.assertNotHandedOver(application.getTeam().getCurrentTrack());
+            applicationRepository.delete(application);
+        });
         LOGGER.info("Delete application(id=%s)".formatted(id));
     }
 

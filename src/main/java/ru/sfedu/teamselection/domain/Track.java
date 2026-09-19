@@ -13,6 +13,7 @@ import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import lombok.AllArgsConstructor;
@@ -65,6 +66,10 @@ public class Track {
     @Column(name = "is_active", nullable = false)
     @Builder.Default
     private Boolean active = false;
+
+    // Set once core has imported the roster; from then on the selection is read-only for everyone (#15).
+    @Column(name = "handed_over_at")
+    private LocalDateTime handedOverAt;
 
     @OneToMany(mappedBy = "currentTrack", fetch = FetchType.LAZY)
     @Builder.Default

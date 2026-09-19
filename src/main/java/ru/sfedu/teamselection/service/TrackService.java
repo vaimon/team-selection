@@ -1,6 +1,8 @@
 package ru.sfedu.teamselection.service;
 
+import java.time.Clock;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.NoSuchElementException;
 import java.util.Objects;
@@ -13,8 +15,10 @@ import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.dto.track.NewSelectionDto;
 import ru.sfedu.teamselection.dto.track.TrackCreationDto;
 import ru.sfedu.teamselection.dto.track.TrackDto;
+import ru.sfedu.teamselection.enums.ConflictReason;
 import ru.sfedu.teamselection.enums.TrackType;
 import ru.sfedu.teamselection.exception.BusinessException;
+import ru.sfedu.teamselection.exception.ConflictException;
 import ru.sfedu.teamselection.exception.ConstraintViolationException;
 import ru.sfedu.teamselection.exception.NotFoundException;
 import ru.sfedu.teamselection.mapper.track.TrackCreationDtoMapper;
@@ -31,6 +35,7 @@ public class TrackService {
     private final TrackCreationDtoMapper trackCreationDtoMapper;
 
     private final TrackDtoMapper trackDtoMapper;
+    private final Clock clock;
 
     /**
      * Find Track entity by id
@@ -58,13 +63,51 @@ public class TrackService {
     }
 
     /**
-     * Previous selections are history: nothing in them changes.
+     * Previous selections are history: nothing in them changes. Neither does a handed-over one.
      * @throws BusinessException when the track is not the current selection
+     * @throws ConflictException when the track has been handed over to core
      */
     public void assertWritable(Track track) {
         if (!Boolean.TRUE.equals(track.getActive())) {
             throw new BusinessException("Набор «%s» завершён, его данные только для чтения".formatted(track.getName()));
         }
+        assertNotHandedOver(track);
+    }
+
+    /**
+     * After core has imported the roster, a change here would silently diverge from it, so the lock
+     * applies to admins too.
+     * @throws ConflictException when the track has been handed over to core
+     */
+    public void assertNotHandedOver(Track track) {
+        if (track.getHandedOverAt() != null) {
+            throw new ConflictException(ConflictReason.HANDED_OVER,
+                    "Состав набора «%s» передан в кабинет ПД — изменения вносятся там".formatted(track.getName()));
+        }
+    }
+
+    /**
+     * Marks the track as handed over. Idempotent: a repeated call keeps the first time, so core may retry.
+     */
+    @Transactional
+    public Track handOver(Long id) {
+        Track track = findByIdOrElseThrow(id);
+        if (track.getHandedOverAt() == null) {
+            track.setHandedOverAt(LocalDateTime.now(clock));
+            log.info("Track {} handed over at {}", id, track.getHandedOverAt());
+        } else {
+            log.info("Track {} already handed over at {}, nothing to do", id, track.getHandedOverAt());
+        }
+        return track;
+    }
+
+    /** Undoes a mistaken hand-over; the admin is responsible for any divergence from core. */
+    @Transactional
+    public Track cancelHandOver(Long id) {
+        Track track = findByIdOrElseThrow(id);
+        log.info("Hand-over of track {} (was {}) cancelled", id, track.getHandedOverAt());
+        track.setHandedOverAt(null);
+        return track;
     }
 
     /**

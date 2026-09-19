@@ -49,6 +49,7 @@ public class TrackDtoMapper implements DtoMapper<TrackDto, Track> {
                 .secondYearTarget(entity.getSecondYearTarget())
                 .active(entity.getActive())
                 .windowState(windowStateOf(entity))
+                .handedOverAt(entity.getHandedOverAt())
                 .build();
     }
 
@@ -65,6 +66,7 @@ public class TrackDtoMapper implements DtoMapper<TrackDto, Track> {
                 .secondYearTarget(entity.getSecondYearTarget())
                 .active(entity.getActive())
                 .windowState(windowStateOf(entity))
+                .handedOverAt(entity.getHandedOverAt())
                 .currentTeams(entity.getCurrentTeams().stream().map(x->teamDtoMapper.mapToDto(x)).toList())
                 .build();
     }

@@ -1,7 +1,7 @@
 package ru.sfedu.teamselection.exception;
 
 import lombok.Getter;
-import ru.sfedu.teamselection.enums.BoardConflict;
+import ru.sfedu.teamselection.enums.ConflictReason;
 
 /**
  * Действие не противоречит правилам само по себе, но противоречит текущему состоянию. Отвечаем 409
@@ -9,9 +9,9 @@ import ru.sfedu.teamselection.enums.BoardConflict;
  */
 @Getter
 public class ConflictException extends RuntimeException {
-    private final BoardConflict code;
+    private final ConflictReason code;
 
-    public ConflictException(BoardConflict code, String message) {
+    public ConflictException(ConflictReason code, String message) {
         super(message);
         this.code = code;
     }
