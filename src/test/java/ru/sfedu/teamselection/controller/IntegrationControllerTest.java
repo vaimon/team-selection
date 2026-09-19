@@ -1,6 +1,7 @@
 package ru.sfedu.teamselection.controller;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 import org.hamcrest.Matchers;
 import org.junit.jupiter.api.BeforeEach;
@@ -17,16 +18,19 @@ import ru.sfedu.teamselection.config.IntegrationSecurityConfig;
 import ru.sfedu.teamselection.config.SecurityConfig;
 import ru.sfedu.teamselection.config.security.ApiKeyAuthFilter;
 import ru.sfedu.teamselection.config.security.SimpleAuthenticationSuccessHandler;
+import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.dto.integration.IntegrationRosterDto;
 import ru.sfedu.teamselection.dto.integration.IntegrationStudentDto;
 import ru.sfedu.teamselection.dto.integration.IntegrationTeamDto;
 import ru.sfedu.teamselection.dto.integration.IntegrationTrackDto;
+import ru.sfedu.teamselection.service.TrackService;
 import ru.sfedu.teamselection.service.audit.AuditService;
 import ru.sfedu.teamselection.service.integration.IntegrationRosterService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
 import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -44,9 +48,12 @@ public class IntegrationControllerTest {
     private static final long TRACK_ID = 1L;
     private static final String ROSTER_URL = "/api/integration/v1/tracks/1/roster";
     private static final String TRACKS_URL = "/api/integration/v1/tracks";
+    private static final String HANDOVER_URL = "/api/integration/v1/tracks/1/handover";
 
     @MockitoBean
     private IntegrationRosterService integrationRosterService;
+    @MockitoBean
+    private TrackService trackService;
 
     @MockitoBean
     private AuditService auditService;
@@ -116,6 +123,31 @@ public class IntegrationControllerTest {
     public void rejectsTheTrackListWithoutAKey() throws Exception {
         mockMvc.perform(get(TRACKS_URL))
                 .andExpect(status().isUnauthorized());
+    }
+
+    /**
+     * Core зовёт передачу POST-ом без CSRF-токена: у интеграционной цепочки CSRF выключен, иначе
+     * этот вызов упал бы с 403 на первом же импорте.
+     */
+    @Test
+    public void handsTheTrackOverWhenTheKeyMatches() throws Exception {
+        Mockito.when(trackService.handOver(TRACK_ID)).thenReturn(Track.builder()
+                .id(TRACK_ID)
+                .handedOverAt(LocalDateTime.of(2026, 11, 2, 12, 30))
+                .build());
+
+        mockMvc.perform(post(HANDOVER_URL).header(ApiKeyAuthFilter.API_KEY_HEADER, VALID_KEY))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.trackId").value(1))
+                .andExpect(jsonPath("$.handedOverAt").value("2026-11-02T12:30:00"));
+    }
+
+    @Test
+    public void rejectsTheHandOverWithoutAKey() throws Exception {
+        mockMvc.perform(post(HANDOVER_URL))
+                .andExpect(status().isUnauthorized());
+
+        Mockito.verifyNoInteractions(trackService);
     }
 
     /**

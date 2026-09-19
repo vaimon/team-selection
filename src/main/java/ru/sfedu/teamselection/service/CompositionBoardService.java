@@ -24,7 +24,7 @@ import ru.sfedu.teamselection.dto.board.CompositionBoardDto;
 import ru.sfedu.teamselection.dto.board.CompositionBoardDto.StudentCard;
 import ru.sfedu.teamselection.dto.board.CompositionBoardDto.TeamCard;
 import ru.sfedu.teamselection.dto.board.CompositionBoardDto.TeamStatus;
-import ru.sfedu.teamselection.enums.BoardConflict;
+import ru.sfedu.teamselection.enums.ConflictReason;
 import ru.sfedu.teamselection.exception.ConflictException;
 import ru.sfedu.teamselection.exception.ConstraintViolationException;
 import ru.sfedu.teamselection.repository.CompositionBoardRepository;
@@ -134,7 +134,7 @@ public class CompositionBoardService {
             assertSuccessor(from, student, request.newLeadId());
         }
         if (to != null && !request.allowOverTarget() && !TeamComposition.of(to).canJoin(student.getCourse())) {
-            throw new ConflictException(BoardConflict.OVER_TARGET,
+            throw new ConflictException(ConflictReason.OVER_TARGET,
                     "Команда «" + to.getName() + "» уже набрала цель по курсу студента");
         }
 
@@ -156,11 +156,11 @@ public class CompositionBoardService {
 
     private static void assertSuccessor(Team team, Student lead, Long newLeadId) {
         if (team.getStudents().size() == 1) {
-            throw new ConflictException(BoardConflict.LEAD_NEEDS_SUCCESSOR,
+            throw new ConflictException(ConflictReason.LEAD_NEEDS_SUCCESSOR,
                     "Тимлид — единственный участник команды «" + team.getName() + "»: распустите команду");
         }
         if (newLeadId == null) {
-            throw new ConflictException(BoardConflict.LEAD_NEEDS_SUCCESSOR,
+            throw new ConflictException(ConflictReason.LEAD_NEEDS_SUCCESSOR,
                     "Перемещается тимлид команды «" + team.getName() + "»: выберите нового тимлида");
         }
         if (newLeadId.equals(lead.getId()) || !isMember(team, newLeadId)) {
@@ -201,7 +201,7 @@ public class CompositionBoardService {
         Team team = teamService.findByIdOrElseThrow(teamId);
         trackService.assertWritable(team.getCurrentTrack());
         if (!expectedVersion.equals(team.getVersion())) {
-            throw new ConflictException(BoardConflict.STALE_VERSION,
+            throw new ConflictException(ConflictReason.STALE_VERSION,
                     "Команду «" + team.getName() + "» изменили, пока вы с ней работали. Обновите доску");
         }
         return team;

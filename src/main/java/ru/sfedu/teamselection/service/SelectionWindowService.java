@@ -35,12 +35,16 @@ public class SelectionWindowService {
      *
      * @param sender пользователь, от имени которого идёт изменение
      * @throws ForbiddenException если набор ещё не открыт или уже закрыт
+     * @throws ru.sfedu.teamselection.exception.ConflictException если состав набора передан в кабинет ПД
      */
     public void assertStudentMutationAllowed(User sender) {
+        // Передача проверяется первой: она запирает и администратора, а к моменту передачи окно обычно
+        // уже закрыто — иначе студент получил бы «набор закрыт» вместо того, куда теперь идти (#15).
+        Track active = trackService.getActive();
+        trackService.assertNotHandedOver(active);
         if (ADMIN_ROLE.equals(sender.getRole().getName())) {
             return;
         }
-        Track active = trackService.getActive();
         SelectionWindowState state = stateOf(active);
         if (state != SelectionWindowState.OPEN) {
             log.info("Mutation refused for user {}: selection '{}' is {} (window {} - {})",

@@ -21,7 +21,7 @@ import ru.sfedu.teamselection.domain.Team;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.board.BoardMoveRequest;
 import ru.sfedu.teamselection.dto.board.CompositionBoardDto;
-import ru.sfedu.teamselection.enums.BoardConflict;
+import ru.sfedu.teamselection.enums.ConflictReason;
 import ru.sfedu.teamselection.exception.ConflictException;
 import ru.sfedu.teamselection.service.CompositionBoardService;
 import ru.sfedu.teamselection.service.UserService;
@@ -134,7 +134,7 @@ class CompositionBoardControllerTest {
 
     @Test
     void aRefusalIsAConflictThatNamesItsReason() throws Exception {
-        Mockito.doThrow(new ConflictException(BoardConflict.OVER_TARGET, "Команда уже набрала цель"))
+        Mockito.doThrow(new ConflictException(ConflictReason.OVER_TARGET, "Команда уже набрала цель"))
                 .when(boardService).move(Mockito.any(), Mockito.any());
 
         mockMvc.perform(post(CompositionBoardController.MOVES)

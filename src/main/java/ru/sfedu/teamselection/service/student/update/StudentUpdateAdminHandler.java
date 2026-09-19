@@ -72,6 +72,8 @@ public class StudentUpdateAdminHandler extends StudentUpdateCommonHandler {
         if (!Objects.equals(oldTrackId, newTrackId)) {
             if (newTrackId != null) {
                 Track newTrack = trackService.findByIdOrElseThrow(newTrackId);
+                // исходный набор проверил вызывающий; переданный набор нельзя и пополнить (#15)
+                trackService.assertNotHandedOver(newTrack);
                 student.setCurrentTrack(newTrack);
             }
         }
