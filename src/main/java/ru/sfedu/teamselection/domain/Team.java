@@ -13,6 +13,7 @@ import jakarta.persistence.ManyToMany;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.OneToMany;
 import jakarta.persistence.Table;
+import jakarta.persistence.Version;
 import jakarta.validation.constraints.Size;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -95,6 +96,14 @@ public class Team {
     /** Токен ссылки-приглашения; NULL — ссылки нет (#13). */
     @Column(name = "join_token")
     private String joinToken;
+
+    /**
+     * Растёт при любом изменении команды, включая состав. Доска состава передаёт ожидаемую версию,
+     * чтобы одновременная правка двух организаторов давала конфликт, а не тихую перезапись (#14).
+     */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
 
     @Column(name = "showcase_ref")
     private String showcaseRef;

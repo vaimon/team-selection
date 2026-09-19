@@ -45,6 +45,10 @@ public record TeamComposition(int firstYears, int secondYears, int firstYearTarg
         return firstYears >= firstYearTarget && secondYears >= secondYearTarget;
     }
 
+    public boolean overTarget() {
+        return firstYears > firstYearTarget || secondYears > secondYearTarget;
+    }
+
     public boolean canJoin(Integer course) {
         return isFirstYear(course) ? firstYearPlacesLeft() > 0 : secondYearPlacesLeft() > 0;
     }
