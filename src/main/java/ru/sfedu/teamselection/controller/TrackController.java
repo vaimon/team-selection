@@ -23,7 +23,9 @@ import ru.sfedu.teamselection.service.TrackService;
 
 
 @RestController
-@RequestMapping(value = "/api/v1/tracks", produces = MediaType.APPLICATION_JSON_VALUE)
+// No path here: TrackApi already carries the full ones, and a class-level path is prepended to them,
+// which served every route at /api/v1/tracks/api/v1/tracks/... (see TrackRoutesTest).
+@RequestMapping(produces = MediaType.APPLICATION_JSON_VALUE)
 @Tag(name = "TrackController", description = "API для работы с треками")
 @RequiredArgsConstructor
 @CrossOrigin

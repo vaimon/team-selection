@@ -1,0 +1,32 @@
+# Scripted journey smoke (vaimon/PDSelectorFrontend#28). Never together with prod: SmokeProfileGuard
+# refuses that start. Sign-in goes through /api/v1/smoke/login instead of SFedU SSO.
+spring:
+  security:
+    oauth2:
+      client:
+        # The azure provider resolves its endpoints from the issuer at startup, which needs a real
+        # tenant and the network. Pointing the registration at a provider with explicit endpoints
+        # lets the stack start offline; nobody is ever sent to them.
+        registration:
+          azure:
+            provider: smoke-offline
+            client-id: smoke
+            client-secret: smoke
+            # Issuer discovery used to supply these two; without it they have to be spelled out.
+            authorization-grant-type: authorization_code
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+        provider:
+          smoke-offline:
+            authorization-uri: http://localhost/smoke-has-no-sso
+            token-uri: http://localhost/smoke-has-no-sso
+            jwk-set-uri: http://localhost/smoke-has-no-sso
+            user-name-attribute: email
+  flyway:
+    # db/smoke holds only an afterMigrate callback, outside the version sequence, so it never
+    # competes with the next real migration number.
+    locations: classpath:db/migration,classpath:db/smoke
+
+frontend:
+  url: ${FRONTEND_URL:http://localhost:5173}
+  login:
+    url: ${FRONTEND_URL:http://localhost:5173}/login
