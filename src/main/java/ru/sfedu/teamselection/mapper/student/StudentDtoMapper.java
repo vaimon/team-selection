@@ -5,6 +5,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Component;
 import ru.sfedu.teamselection.domain.Student;
+import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.dto.student.StudentDto;
 import ru.sfedu.teamselection.dto.student.StudentTrackDto;
 import ru.sfedu.teamselection.dto.track.TrackCreationDto;
@@ -63,21 +64,7 @@ public class StudentDtoMapper implements DtoMapper<StudentDto, Student> {
                 .groupNumber(entity.getGroupNumber())
                 .aboutSelf(entity.getAboutSelf())
                 .contacts(entity.getContacts())
-                .track(
-                        StudentTrackDto.builder()
-                                .name(entity.getCurrentTrack().getName())
-                                .about(entity.getCurrentTrack().getAbout())
-                                .startDate(entity.getCurrentTrack().getStartDate())
-                                .endDate(entity.getCurrentTrack().getEndDate())
-                                .type(
-                                        entity.getCurrentTrack().getType() != null
-                                                ? entity.getCurrentTrack().getType().toString()
-                                                : null
-                                )
-                                .firstYearTarget(entity.getCurrentTrack().getFirstYearTarget())
-                                .secondYearTarget(entity.getCurrentTrack().getSecondYearTarget())
-                                .build()
-                )
+                .track(trackOf(entity.getCurrentTrack()))
                 .hasTeam(entity.getHasTeam())
                 .isCaptain(entity.getIsCaptain())
                 .currentTeam(teamDtoMapper.mapToDtoWithoutStudents(entity.getCurrentTeam()))
@@ -88,6 +75,26 @@ public class StudentDtoMapper implements DtoMapper<StudentDto, Student> {
                 .build();
     }
 
+
+    /**
+     * Набор студента. Пусто у того, кто анкету не заполнял: роль STUDENT выдаётся и без неё, а такой
+     * студент попадает в каталог, когда поиск идёт без фильтра по набору.
+     */
+    private static StudentTrackDto trackOf(Track track) {
+        if (track == null) {
+            return null;
+        }
+        return StudentTrackDto.builder()
+                .id(track.getId())
+                .name(track.getName())
+                .about(track.getAbout())
+                .startDate(track.getStartDate())
+                .endDate(track.getEndDate())
+                .type(track.getType() != null ? track.getType().toString() : null)
+                .firstYearTarget(track.getFirstYearTarget())
+                .secondYearTarget(track.getSecondYearTarget())
+                .build();
+    }
 
     public StudentDto mapToDtoWithoutTeam(Student entity) {
         if (entity == null) {
