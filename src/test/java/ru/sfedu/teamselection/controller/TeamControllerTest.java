@@ -162,6 +162,10 @@ public class TeamControllerTest {
                 Mockito.anyBoolean(),
                 Mockito.anyList(),
                 Mockito.anyList(),
+                // Именно eq, а не any: имя параметра на проводе не проверяется больше нигде, а
+                // фронт закодирован ровно под него — при опечатке в @RequestParam сюда пришёл бы
+                // null, заглушка не совпала бы, и тест упал бы вместо тихого «фильтр не работает».
+                Mockito.eq(1),
                 Mockito.notNull()
         );
 
@@ -171,6 +175,7 @@ public class TeamControllerTest {
                         .param("is_full", "false")
                         .param("project_type", "")
                         .param("technologies", "")
+                        .param("has_place_for_course", "1")
                         .param("sort", sort)
                         .with(SecurityMockMvcRequestPostProcessors.csrf())
                         .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(genericStudentUser)))

@@ -16,6 +16,7 @@ import jakarta.persistence.criteria.Subquery;
 import org.springframework.data.jpa.domain.Specification;
 import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Team;
+import ru.sfedu.teamselection.domain.TeamComposition;
 import ru.sfedu.teamselection.domain.Technology;
 
 @SuppressWarnings("checkstyle:MultipleStringLiterals")
@@ -55,6 +56,22 @@ public final class TeamSpecification {
             );
             return Boolean.TRUE.equals(complete) ? isComplete : cb.not(isComplete);
         };
+    }
+
+    /**
+     * Same rule as {@link ru.sfedu.teamselection.domain.TeamComposition#canJoin(Integer)}, evaluated
+     * in SQL: course 1 takes a first-year place, every later course a second-year one.
+     *
+     * <p>Java clamps the places left at zero, so a team over its target has no place either way;
+     * comparing the member count with the target says the same thing without needing the clamp.
+     */
+    public static Specification<Team> hasPlaceForCourse(Integer course) {
+        boolean firstYear = TeamComposition.isFirstYear(course);
+        String target = firstYear ? "firstYearTarget" : "secondYearTarget";
+        return (root, query, cb) -> cb.lt(
+                countMembers(root, query, cb, firstYear),
+                cb.coalesce(root.<Integer>get(target), root.get("currentTrack").<Integer>get(target))
+        );
     }
 
     private static Subquery<Long> countMembers(

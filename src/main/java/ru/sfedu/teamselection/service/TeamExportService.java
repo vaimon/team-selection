@@ -47,7 +47,7 @@ public class TeamExportService {
     @Transactional(readOnly = true)
     public byte[] exportTeamsToCsvByTrack(Long trackId) {
         Pageable all = PageRequest.of(0, Integer.MAX_VALUE, Sort.by("name").ascending());
-        List<Team> teams = teamService.search(null, trackId, null, null, null, all).getContent();
+        List<Team> teams = teamService.search(null, trackId, null, null, null, null, all).getContent();
 
         String[] headers = {
                 "id",
@@ -106,7 +106,7 @@ public class TeamExportService {
     @Transactional(readOnly = true)
     public byte[] exportTeamsToExcelByTrack(Long trackId) {
         Pageable all = PageRequest.of(0, Integer.MAX_VALUE, Sort.by("name").ascending());
-        List<Team> teams = teamService.search(null, trackId, null, null, null, all).getContent();
+        List<Team> teams = teamService.search(null, trackId, null, null, null, null, all).getContent();
 
         try (XSSFWorkbook workbook = new XSSFWorkbook();
              ByteArrayOutputStream bos = new ByteArrayOutputStream()) {

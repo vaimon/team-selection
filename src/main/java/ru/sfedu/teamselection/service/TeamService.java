@@ -85,6 +85,7 @@ public class TeamService {
      * @param isFull team meets both per-year targets
      * @param projectType project type defined by team's captain
      * @param technologies team's technologies(skills)
+     * @param hasPlaceForCourse team still has a free place for a student on that course
      * @param pageable pageable
      * @return the filtered list
      */
@@ -93,6 +94,7 @@ public class TeamService {
                              Boolean isFull,
                              List<String> projectType,
                              List<Long> technologies,
+                             Integer hasPlaceForCourse,
                              Pageable pageable) {
         Specification<Team> specification = Specification.allOf();
         if (like != null) {
@@ -106,6 +108,9 @@ public class TeamService {
         }
         if (projectType != null) {
             specification = specification.and(TeamSpecification.byProjectType(projectType));
+        }
+        if (hasPlaceForCourse != null) {
+            specification = specification.and(TeamSpecification.hasPlaceForCourse(hasPlaceForCourse));
         }
         specification = specification.and(TeamSpecification.byTechnologies(technologies));
 
@@ -341,7 +346,7 @@ public class TeamService {
 
     @Transactional(readOnly = true)
     public TeamSearchOptionsDto getSearchOptionsTeams(Long trackId) {
-        var teams = search(null, trackId, null, null, null, Pageable.unpaged());
+        var teams = search(null, trackId, null, null, null, null, Pageable.unpaged());
         TeamSearchOptionsDto teamSearchOptionsDto = new TeamSearchOptionsDto();
         teamSearchOptionsDto
                 .getProjectTypes()

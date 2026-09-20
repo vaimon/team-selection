@@ -295,6 +295,7 @@ class TeamServiceTest extends BasicTestContainerTest {
                 null,
                 null,
                 null,
+                null,
                 Pageable.unpaged()
         );
 
@@ -312,6 +313,7 @@ class TeamServiceTest extends BasicTestContainerTest {
         Page<Team> actual = underTest.search(
                 null,
                 trackParam,
+                null,
                 null,
                 null,
                 null,
@@ -335,6 +337,7 @@ class TeamServiceTest extends BasicTestContainerTest {
                 isFullParam,
                 null,
                 null,
+                null,
                 Pageable.unpaged()
         );
 
@@ -348,7 +351,7 @@ class TeamServiceTest extends BasicTestContainerTest {
     @Test
     @Sql(statements = "UPDATE teams SET first_year_target = 4 WHERE id = 1003")
     void searchByIsFullRespectsTeamOverride() {
-        Page<Team> actual = underTest.search(null, null, true, null, null, Pageable.unpaged());
+        Page<Team> actual = underTest.search(null, null, true, null, null, null, Pageable.unpaged());
 
         Assertions.assertEquals(0, actual.getTotalElements());
     }
@@ -362,6 +365,7 @@ class TeamServiceTest extends BasicTestContainerTest {
                 null,
                 null,
                 projectTypeParam,
+                null,
                 null,
                 Pageable.unpaged()
         );
@@ -383,6 +387,7 @@ class TeamServiceTest extends BasicTestContainerTest {
                 null,
                 null,
                 technologiesParam,
+                null,
                 Pageable.unpaged()
         );
 

@@ -124,6 +124,9 @@ public class TeamController {
                     @Parameter(name = "is_full", description = "Команда собрана: выполнены цели по обоим курсам", in = ParameterIn.QUERY),
                     @Parameter(name = "project_type", description = "Тип проекта", in = ParameterIn.QUERY),
                     @Parameter(name = "technologies", description = "Список ID технологий", in = ParameterIn.QUERY),
+                    @Parameter(name = "has_place_for_course",
+                            description = "Есть место для этого курса: 1 — первокурсник, иначе 2 курс и старше",
+                            example = "1", in = ParameterIn.QUERY),
                     @Parameter(name = "page", description = "Номер страницы", example = "0", in = ParameterIn.QUERY),
                     @Parameter(name = "size", description = "Размер страницы", example = "10", in = ParameterIn.QUERY),
                     @Parameter(name = "sort", description = "Сортировка (field,asc|desc)", example = "name,asc", in = ParameterIn.QUERY)
@@ -136,6 +139,7 @@ public class TeamController {
             @RequestParam(value = "is_full", required = false) Boolean isFull,
             @RequestParam(value = "project_type", required = false) List<String> projectType,
             @RequestParam(value = "technologies", required = false) List<Long> technologies,
+            @RequestParam(value = "has_place_for_course", required = false) Integer hasPlaceForCourse,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
             @RequestParam(defaultValue = "name,asc") String sort) {
@@ -147,7 +151,8 @@ public class TeamController {
         Pageable pageable = PageRequest.of(page, size, Sort.by(direction, sortParams[0]));
 
         Page<TeamDto> result = teamService
-                .search(like, teamService.resolveTrackId(trackId), isFull, projectType, technologies, pageable)
+                .search(like, teamService.resolveTrackId(trackId), isFull, projectType, technologies,
+                        hasPlaceForCourse, pageable)
                 .map(teamDtoMapper::mapToDto);
         return ResponseEntity.ok(pageResponseMapper.toDto(result));
     }
