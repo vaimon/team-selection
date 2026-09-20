@@ -135,7 +135,7 @@ class UserServiceTest extends BasicTestContainerTest {
                 .role(Role.builder().id(4L).name("STUDENT").build())
                 .build();
 
-        User actual = underTest.createOrUpdate(dto, PermissionLevelUpdate.OWNER);
+        User actual = underTest.createOrUpdate(dto, PermissionLevelUpdate.OWNER, null);
 
         Assertions.assertEquals(expected.getFio(), actual.getFio());
         Assertions.assertEquals(expected.getEmail(), actual.getEmail());
@@ -170,7 +170,7 @@ class UserServiceTest extends BasicTestContainerTest {
                 .student(null)
                 .build();
 
-        User actual = underTest.createOrUpdate(dto, PermissionLevelUpdate.OWNER);
+        User actual = underTest.createOrUpdate(dto, PermissionLevelUpdate.OWNER, null);
 
         Assertions.assertEquals(expected.getId(), actual.getId());
         Assertions.assertEquals(expected.getEmail(), actual.getEmail());
@@ -220,7 +220,7 @@ class UserServiceTest extends BasicTestContainerTest {
                 )
                 .build();
 
-        User actual = underTest.createOrUpdate(dto, PermissionLevelUpdate.ADMIN);
+        User actual = underTest.createOrUpdate(dto, PermissionLevelUpdate.ADMIN, null);
 
         Assertions.assertEquals(expected.getId(), actual.getId());
         Assertions.assertEquals(expected.getFio(), actual.getFio());
@@ -246,7 +246,7 @@ class UserServiceTest extends BasicTestContainerTest {
     @Test
     void assignRole() {
         String roleName = "ADMIN";
-        var actual = underTest.assignRole(102L, roleName);
+        var actual = underTest.assignRole(102L, roleName, null);
 
         Assertions.assertEquals(roleName, actual.getRole().getName());
     }
@@ -254,7 +254,7 @@ class UserServiceTest extends BasicTestContainerTest {
     @Test
     void assignStudentRole() {
         String roleName = "STUDENT";
-        var actual = underTest.assignRole(102L, roleName);
+        var actual = underTest.assignRole(102L, roleName, null);
 
         Assertions.assertEquals(roleName, actual.getRole().getName());
 
@@ -265,9 +265,9 @@ class UserServiceTest extends BasicTestContainerTest {
     @Test
     void whenAssignStudentRoleTwiceThenDoNotCreateStudentTwice() {
         String roleName = "STUDENT";
-        var actual = underTest.assignRole(102L, roleName);
+        var actual = underTest.assignRole(102L, roleName, null);
         // do not throw
-        actual = underTest.assignRole(102L, roleName);
+        actual = underTest.assignRole(102L, roleName, null);
         Assertions.assertEquals(roleName, actual.getRole().getName());
 
         // Student should have been created
@@ -278,7 +278,7 @@ class UserServiceTest extends BasicTestContainerTest {
     void assignInvalidRoleShouldFail() {
         String roleName = "role";
 
-        var ex = Assertions.assertThrows(NotFoundException.class, () -> underTest.assignRole(102L, roleName));
+        var ex = Assertions.assertThrows(NotFoundException.class, () -> underTest.assignRole(102L, roleName, null));
         Assertions.assertTrue(ex.getMessage().contains("Роль"));
     }
 
@@ -287,7 +287,7 @@ class UserServiceTest extends BasicTestContainerTest {
         // given
         User user = userRepository.findById(102L).orElseThrow();
         // when
-        underTest.deactivateUser(102L);
+        underTest.deactivateUser(102L, null);
         // then
         Assertions.assertFalse(user.getIsEnabled());
     }
@@ -348,7 +348,7 @@ class UserServiceTest extends BasicTestContainerTest {
 
     @Test
     void aRoleThatNoLongerExistsCannotBeAssigned() {
-        Assertions.assertThrows(NotFoundException.class, () -> underTest.assignRole(102L, "JURY"));
+        Assertions.assertThrows(NotFoundException.class, () -> underTest.assignRole(102L, "JURY", null));
     }
 
     /**
@@ -398,7 +398,7 @@ class UserServiceTest extends BasicTestContainerTest {
         Assertions.assertEquals(1, userRepository.countByRoleName("ADMIN"));
 
         BusinessException refusal = Assertions.assertThrows(BusinessException.class,
-                () -> underTest.assignRole(1L, "STUDENT"));
+                () -> underTest.assignRole(1L, "STUDENT", null));
 
         Assertions.assertTrue(refusal.getMessage().contains("последний администратор"), refusal.getMessage());
         Assertions.assertEquals("ADMIN", userRepository.findById(1L).orElseThrow().getRole().getName());
@@ -406,10 +406,10 @@ class UserServiceTest extends BasicTestContainerTest {
 
     @Test
     void withASecondAdminInPlaceTheFirstOneCanBeDemoted() {
-        underTest.assignRole(2L, "ADMIN");
+        underTest.assignRole(2L, "ADMIN", null);
         Assertions.assertEquals(2, userRepository.countByRoleName("ADMIN"));
 
-        underTest.assignRole(1L, "STUDENT");
+        underTest.assignRole(1L, "STUDENT", null);
 
         Assertions.assertEquals("STUDENT", userRepository.findById(1L).orElseThrow().getRole().getName());
         Assertions.assertEquals(1, userRepository.countByRoleName("ADMIN"));
@@ -417,14 +417,14 @@ class UserServiceTest extends BasicTestContainerTest {
 
     @Test
     void theGuardDoesNotGetInTheWayOfGrantingAdmin() {
-        underTest.assignRole(3L, "ADMIN");
+        underTest.assignRole(3L, "ADMIN", null);
 
         Assertions.assertEquals("ADMIN", userRepository.findById(3L).orElseThrow().getRole().getName());
     }
 
     @Test
     void reassigningAdminToSomeoneWhoIsAlreadyAdminIsNotTreatedAsLosingIt() {
-        Assertions.assertDoesNotThrow(() -> underTest.assignRole(1L, "ADMIN"));
+        Assertions.assertDoesNotThrow(() -> underTest.assignRole(1L, "ADMIN", null));
 
         Assertions.assertEquals("ADMIN", userRepository.findById(1L).orElseThrow().getRole().getName());
     }

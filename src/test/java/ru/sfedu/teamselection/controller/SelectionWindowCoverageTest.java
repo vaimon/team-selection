@@ -53,6 +53,7 @@ class SelectionWindowCoverageTest {
             Map.entry("TrackHandOverController#handOver", "только администратор: передача идёт после закрытия"),
             Map.entry("TrackHandOverController#cancelHandOver", "только администратор: передача идёт после закрытия"),
             Map.entry("IntegrationController#handOver", "вызывает core по API-ключу после закрытия набора"),
+            Map.entry("ActivityController#purge", "только администратор: чистка истории"),
             Map.entry("ProjectTypeController#createProjectType", "только администратор: словарь"),
             Map.entry("ProjectTypeController#deleteProjectType", "только администратор: словарь"),
             Map.entry("TechnologyController#createTechnology", "только администратор: словарь"),

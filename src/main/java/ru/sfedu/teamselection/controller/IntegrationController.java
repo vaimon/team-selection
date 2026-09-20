@@ -48,7 +48,7 @@ public class IntegrationController {
     @PostMapping("/tracks/{trackId}/handover")
     public IntegrationHandOverDto handOver(@PathVariable Long trackId) {
         log.info("Integration hand-over requested for track {}", trackId);
-        Track track = trackService.handOver(trackId);
+        Track track = trackService.handOver(trackId, null);
         return new IntegrationHandOverDto(track.getId(), track.getHandedOverAt());
     }
 }

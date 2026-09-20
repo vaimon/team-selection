@@ -53,6 +53,7 @@ public class TeamService {
     private final TechnologyMapper technologyDtoMapper;
     private final ProjectTypeMapper projectTypeDtoMapper;
     private final TeamCreationDtoMapper teamCreationDtoMapper;
+    private final ActivityService activityService;
 
     @Autowired
     @Lazy
@@ -167,7 +168,18 @@ public class TeamService {
                 )
         );
 
-        return teamRepository.save(team);
+        Team created = teamRepository.save(team);
+        // после сохранения: до него у команды ещё нет id, и запись истории осталась бы без цели
+        activityService.teamCreated(created, sender);
+        return created;
+    }
+
+    /** Удаление командой администратора — то же, что роспуск, только без проверки тимлида. */
+    @Transactional
+    public void delete(Long id, User actor) {
+        Team team = findByIdOrElseThrow(id);
+        activityService.teamDisbanded(team, actor);
+        delete(id);
     }
 
     /**
@@ -269,7 +281,9 @@ public class TeamService {
         Team team = findByIdOrElseThrow(teamId);
         Student student = studentService.findByIdOrElseThrow(studentId);
 
-        return addStudentToTeam(team, student, isAdmin(sender));
+        Team updated = addStudentToTeam(team, student, isAdmin(sender));
+        activityService.memberJoined(updated, student, sender);
+        return updated;
     }
 
     /**
@@ -298,6 +312,7 @@ public class TeamService {
                 )
         );
 
+        activityService.teamUpdated(team, sender);
         return teamRepository.save(team);
     }
 
@@ -363,6 +378,7 @@ public class TeamService {
 
         Student member = memberOrElseThrow(team, studentId);
         removeStudentFromTeam(team, member);
+        activityService.memberRemoved(team, member, sender);
         return teamRepository.save(team);
     }
 
@@ -384,6 +400,7 @@ public class TeamService {
         }
 
         removeStudentFromTeam(team, self);
+        activityService.memberLeft(team, self, sender);
         return teamRepository.save(team);
     }
 
@@ -404,6 +421,7 @@ public class TeamService {
         oldCaptain.setIsCaptain(false);
         newCaptain.setIsCaptain(true);
         team.setCaptainId(newCaptain.getId());
+        activityService.leadChanged(team, newCaptain, sender);
         return teamRepository.save(team);
     }
 
@@ -418,6 +436,7 @@ public class TeamService {
         Team team = loadForMutation(teamId, sender);
         assertCaptainOrAdmin(team, sender);
 
+        activityService.teamDisbanded(team, sender);
         delete(teamId);
     }
 

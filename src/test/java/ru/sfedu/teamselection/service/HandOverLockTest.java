@@ -82,8 +82,8 @@ class HandOverLockTest extends BasicTestContainerTest {
     @BeforeEach
     void handOverTheClosedSelection() {
         SelectionWindowFixture.closed(trackRepository);
-        track = trackService.handOver(trackRepository.findByActiveTrue().orElseThrow().getId());
         admin = userRepository.findById(1L).orElseThrow();
+        track = trackService.handOver(trackRepository.findByActiveTrue().orElseThrow().getId(), admin);
     }
 
     private User user(long id) {
@@ -128,7 +128,7 @@ class HandOverLockTest extends BasicTestContainerTest {
     void aStudentCannotEditTheirAccountEither() {
         UserDto self = UserDto.builder().id(13L).fio("Новое имя").email("new@sfedu.ru").build();
 
-        assertHandedOver(() -> userService.createOrUpdate(self, PermissionLevelUpdate.OWNER));
+        assertHandedOver(() -> userService.createOrUpdate(self, PermissionLevelUpdate.OWNER, user(13)));
     }
 
     @Test
@@ -148,13 +148,13 @@ class HandOverLockTest extends BasicTestContainerTest {
 
     @Test
     void anAdminCannotDeleteATeam() {
-        assertHandedOver(() -> teamService.delete(TEAM));
+        assertHandedOver(() -> teamService.delete(TEAM, admin));
     }
 
     @Test
     void anAdminCannotEditOrDeleteAStudent() {
-        assertHandedOver(() -> studentService.update(12L, new StudentUpdateDto(), PermissionLevelUpdate.ADMIN));
-        assertHandedOver(() -> studentService.delete(4L));
+        assertHandedOver(() -> studentService.update(12L, new StudentUpdateDto(), PermissionLevelUpdate.ADMIN, admin));
+        assertHandedOver(() -> studentService.delete(4L, admin));
     }
 
     /** Студент 3 — из другого, незапертого набора; перевести его в переданный набор тоже нельзя. */
@@ -166,12 +166,12 @@ class HandOverLockTest extends BasicTestContainerTest {
                 .user(new StudentUpdateUserDto().fio("Студент 3").email("s3@sfedu.ru")
                         .isEnabled(true).isRemindEnabled(true));
 
-        assertHandedOver(() -> studentService.update(3L, intoTheHandedOver, PermissionLevelUpdate.ADMIN));
+        assertHandedOver(() -> studentService.update(3L, intoTheHandedOver, PermissionLevelUpdate.ADMIN, admin));
     }
 
     @Test
     void anAdminCannotDeleteAnApplication() {
-        assertHandedOver(() -> applicationService.delete(5L));
+        assertHandedOver(() -> applicationService.delete(5L, admin));
     }
 
     @Test
@@ -183,7 +183,7 @@ class HandOverLockTest extends BasicTestContainerTest {
                 .endDate(track.getEndDate())
                 .build();
 
-        assertHandedOver(() -> trackService.update(track.getId(), settings));
+        assertHandedOver(() -> trackService.update(track.getId(), settings, admin));
     }
 
     // --- что остаётся возможным ---
@@ -194,7 +194,7 @@ class HandOverLockTest extends BasicTestContainerTest {
                 .name("Следующий набор")
                 .startDate(LocalDate.now().minusDays(1))
                 .endDate(LocalDate.now().plusDays(10))
-                .build());
+                .build(), admin);
 
         Assertions.assertNull(next.getHandedOverAt());
         studentService.create(questionnaireOfUser5(), user(5));
@@ -207,14 +207,14 @@ class HandOverLockTest extends BasicTestContainerTest {
         LocalDateTime first = track.getHandedOverAt();
 
         Assertions.assertNotNull(first);
-        Assertions.assertEquals(first, trackService.handOver(track.getId()).getHandedOverAt());
+        Assertions.assertEquals(first, trackService.handOver(track.getId(), admin).getHandedOverAt());
     }
 
     @Test
     void cancellingTheHandOverUnlocksTheSelection() {
-        trackService.cancelHandOver(track.getId());
+        trackService.cancelHandOver(track.getId(), admin);
 
         Assertions.assertNull(trackRepository.findById(track.getId()).orElseThrow().getHandedOverAt());
-        Assertions.assertDoesNotThrow(() -> studentService.delete(4L));
+        Assertions.assertDoesNotThrow(() -> studentService.delete(4L, admin));
     }
 }

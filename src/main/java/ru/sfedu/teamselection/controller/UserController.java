@@ -28,7 +28,6 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import ru.sfedu.teamselection.config.security.Access;
-import ru.sfedu.teamselection.config.logging.Auditable;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.RoleDto;
 import ru.sfedu.teamselection.dto.UserDto;
@@ -85,13 +84,12 @@ public class UserController {
     @PutMapping(value = PUT_USER,
             consumes = MediaType.APPLICATION_JSON_VALUE,
             produces = MediaType.APPLICATION_JSON_VALUE)
-    @Auditable(auditPoint = "User.PutUser")
     public ResponseEntity<UserDto> putUser(@RequestBody @Valid UserDto userDto) {
         User user = userService.getCurrentUser();
         var permission = user.getRole().getName().equals("ADMIN")
                 ? PermissionLevelUpdate.ADMIN
                 : PermissionLevelUpdate.OWNER;
-        UserDto result = userMapper.mapToDto(userService.createOrUpdate(userDto, permission));
+        UserDto result = userMapper.mapToDto(userService.createOrUpdate(userDto, permission, user));
         return ResponseEntity.ok(result);
     }
 
@@ -104,7 +102,6 @@ public class UserController {
             summary = "Получение текущего пользователя"
     )
     @GetMapping(CURRENT_USER)
-    @Auditable(auditPoint = "User.GetCurrentUser")
     public ResponseEntity<UserDto> getCurrentUser() {
         User currentUser = userService.getCurrentUser();
         UserDto result = userMapper.mapToDto(currentUser);
@@ -121,7 +118,6 @@ public class UserController {
     )
     @GetMapping(GET_ROLES)
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @Auditable(auditPoint = "User.GetAllRoles")
     public ResponseEntity<List<RoleDto>> getAllRoles() {
         return ResponseEntity.ok(userService.getAllRoles()
                 .stream()
@@ -151,16 +147,14 @@ public class UserController {
             ))
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @PostMapping(GRANT_ROLE)
-    @Auditable(auditPoint = "User.AssignRole")
     public ResponseEntity<?> assignRole(@PathVariable Long id, @RequestBody RoleDto roleDto) {
-        userService.assignRole(id, roleDto.getName());
+        userService.assignRole(id, roleDto.getName(), userService.getCurrentUser());
         return ResponseEntity.ok().build();
     }
 
     @SuppressWarnings("checkstyle:ParameterNumber")
     @PreAuthorize(Access.ADMIN)
     @GetMapping(FIND_USERS)
-    @Auditable(auditPoint = "User.SearchUsers")
     public ResponseEntity<Page<UserDto>> searchUsers(
             @RequestParam(value = "fio",         required = false) String  fio,
             @RequestParam(value = "email",       required = false) String  email,
@@ -196,15 +190,13 @@ public class UserController {
     @Operation(summary = "Удалить пользователя")
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @DeleteMapping(DELETE_USER)
-    @Auditable(auditPoint = "User.DeleteUser")
     public ResponseEntity<String> deleteUser(@PathVariable Long id) {
-        userService.deactivateUser(id);
+        userService.deactivateUser(id, userService.getCurrentUser());
         return ResponseEntity.ok("User with id: " + id + "was deleted");
     }
 
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN + " or @userService.getCurrentUser().getId().equals(#id)")
     @GetMapping(GET_USER_PHOTO)
-    @Auditable(auditPoint = "User.GetPhoto")
     public ResponseEntity<byte[]> getPhoto(
             OAuth2AuthenticationToken authentication,
             @PathVariable(value = "id") Long id

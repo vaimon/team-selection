@@ -10,11 +10,11 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RestController;
-import ru.sfedu.teamselection.config.logging.Auditable;
 import ru.sfedu.teamselection.config.security.Access;
 import ru.sfedu.teamselection.dto.track.TrackDto;
 import ru.sfedu.teamselection.mapper.track.TrackDtoMapper;
 import ru.sfedu.teamselection.service.TrackService;
+import ru.sfedu.teamselection.service.UserService;
 
 /**
  * Передача состава в кабинет ПД вручную (#15) — если импорт в core прошёл в обход обычного вызова,
@@ -32,6 +32,7 @@ public class TrackHandOverController {
 
     private final TrackService trackService;
     private final TrackDtoMapper trackDtoMapper;
+    private final UserService userService;
 
     @Operation(
             method = "POST",
@@ -41,10 +42,9 @@ public class TrackHandOverController {
     )
     @PreAuthorize(Access.ADMIN)
     @PostMapping(value = HAND_OVER, produces = MediaType.APPLICATION_JSON_VALUE)
-    @Auditable(auditPoint = "Track.HandOver")
     public TrackDto handOver(@PathVariable Long trackId) {
         log.info("ENTER handOver() endpoint, trackId={}", trackId);
-        return trackDtoMapper.mapToDtoWithoutTeams(trackService.handOver(trackId));
+        return trackDtoMapper.mapToDtoWithoutTeams(trackService.handOver(trackId, userService.getCurrentUser()));
     }
 
     @Operation(
@@ -55,9 +55,8 @@ public class TrackHandOverController {
     )
     @PreAuthorize(Access.ADMIN)
     @PostMapping(value = CANCEL_HAND_OVER, produces = MediaType.APPLICATION_JSON_VALUE)
-    @Auditable(auditPoint = "Track.CancelHandOver")
     public TrackDto cancelHandOver(@PathVariable Long trackId) {
         log.info("ENTER cancelHandOver() endpoint, trackId={}", trackId);
-        return trackDtoMapper.mapToDtoWithoutTeams(trackService.cancelHandOver(trackId));
+        return trackDtoMapper.mapToDtoWithoutTeams(trackService.cancelHandOver(trackId, userService.getCurrentUser()));
     }
 }

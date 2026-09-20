@@ -1043,7 +1043,7 @@ class ApplicationServiceTest extends BasicTestContainerTest {
     @Test
     void delete() {
         Long applicationId = 1L;
-        underTest.delete(applicationId);
+        underTest.delete(applicationId, null);
 
         Assertions.assertFalse(applicationRepository.existsById(applicationId));
     }

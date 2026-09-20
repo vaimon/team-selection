@@ -14,12 +14,13 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import ru.sfedu.teamselection.config.security.Access;
 import ru.sfedu.teamselection.api.TrackApi;
-import ru.sfedu.teamselection.config.logging.Auditable;
+import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.dto.track.NewSelectionDto;
 import ru.sfedu.teamselection.dto.track.TrackCreationDto;
 import ru.sfedu.teamselection.dto.track.TrackDto;
 import ru.sfedu.teamselection.mapper.track.TrackDtoMapper;
 import ru.sfedu.teamselection.service.TrackService;
+import ru.sfedu.teamselection.service.UserService;
 
 
 @RestController
@@ -33,12 +34,12 @@ public class TrackController implements TrackApi {
 
     private final TrackService trackService;
     private final TrackDtoMapper trackDtoMapper;
+    private final UserService userService;
 
     private static final Logger LOGGER = Logger.getLogger(TrackController.class.getName());
 
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @Override
-    @Auditable(auditPoint = "Track.FindAll")
     public ResponseEntity<List<TrackDto>> findAllTracks() {
         LOGGER.info("ENTER findAll() endpoint");
         return ResponseEntity.ok(trackService.findAll());
@@ -46,7 +47,6 @@ public class TrackController implements TrackApi {
 
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @Override
-    @Auditable(auditPoint = "Track.FindById")
     public ResponseEntity<TrackDto> findTrackById(@PathVariable(name = "trackId") Long trackId) {
         LOGGER.info("ENTER findById(%d) endpoint".formatted(trackId));
         TrackDto result = trackDtoMapper.mapToDto(trackService.findByIdOrElseThrow(trackId));
@@ -60,15 +60,14 @@ public class TrackController implements TrackApi {
 
     @Override
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @Auditable(auditPoint = "Track.StartNewSelection")
     public ResponseEntity<TrackDto> startNewSelection(@RequestBody NewSelectionDto dto) {
         LOGGER.info("ENTER startNewSelection() endpoint");
-        return ResponseEntity.ok(trackDtoMapper.mapToDtoWithoutTeams(trackService.startNewSelection(dto)));
+        Track started = trackService.startNewSelection(dto, userService.getCurrentUser());
+        return ResponseEntity.ok(trackDtoMapper.mapToDtoWithoutTeams(started));
     }
 
     @Override
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @Auditable(auditPoint = "Track.CreateTrack")
     public ResponseEntity<TrackDto> createTrack(@RequestBody TrackCreationDto trackDto) {
         LOGGER.info("ENTER createTrack() endpoint");
         TrackDto result = trackDtoMapper.mapToDto(trackService.create(trackDto));
@@ -77,19 +76,17 @@ public class TrackController implements TrackApi {
 
     @Override
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @Auditable(auditPoint = "Track.UpdateTrack")
     public ResponseEntity<TrackDto> updateTrack(
             @PathVariable(value = "trackId") Long trackId,
             @RequestBody TrackDto trackDto
     ) {
         LOGGER.info("ENTER updateTrack(%d) endpoint".formatted(trackId));
-        TrackDto result = trackDtoMapper.mapToDto(trackService.update(trackId, trackDto));
+        TrackDto result = trackDtoMapper.mapToDto(trackService.update(trackId, trackDto, userService.getCurrentUser()));
         return ResponseEntity.ok(result);
     }
 
     @Override
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @Auditable(auditPoint = "Track.DeleteTrack")
     public ResponseEntity<Void> deleteTrack(@PathVariable(value = "trackId") Long trackId) {
         LOGGER.info("ENTER deleteTrack(%d) endpoint".formatted(trackId));
         trackService.deleteById(trackId);

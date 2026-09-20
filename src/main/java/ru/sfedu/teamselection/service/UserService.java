@@ -57,6 +57,7 @@ public class UserService {
     @Autowired
     private TrackService trackService;
     private final UserSessionService userSessionService;
+    private final ActivityService activityService;
 
     private final UserMapper userMapper;
 
@@ -144,7 +145,7 @@ public class UserService {
     }
 
     @Transactional
-    public User createOrUpdate(UserDto dto, PermissionLevelUpdate permission) {
+    public User createOrUpdate(UserDto dto, PermissionLevelUpdate permission, User actor) {
         if (dto.getId() != null) {
             // --- обновление ---
             User existing = findByIdOrElseThrow(dto.getId());
@@ -155,7 +156,7 @@ public class UserService {
 
             if (permission == PermissionLevelUpdate.ADMIN) {
                 // обновляем роль
-                assignRole(existing.getId(), dto.getRole());
+                assignRole(existing.getId(), dto.getRole(), actor);
                 // обновляем остальные поля
                 existing.setFio(dto.getFio());
                 existing.setEmail(dto.getEmail());
@@ -169,6 +170,10 @@ public class UserService {
                         existing.getStudent(),
                         userToStudentUpdateMapper.userDtoToStudentUpdateDto(dto)
                 );
+                activityService.studentUpdated(existing.getStudent(), actor);
+            } else {
+                // у администратора анкеты нет, но правка аккаунта — тоже изменение, и она в истории
+                activityService.userUpdated(existing, actor);
             }
 
             return userRepository.save(existing);
@@ -185,7 +190,9 @@ public class UserService {
                 studentRepository.save(student);
             }
 
-            return userRepository.save(user);
+            User created = userRepository.save(user);
+            activityService.userCreated(created, actor);
+            return created;
         }
     }
 
@@ -196,7 +203,7 @@ public class UserService {
     }
 
     @Transactional
-    public User assignRole(Long userId, String roleName) {
+    public User assignRole(Long userId, String roleName, User actor) {
         User user = findByIdOrElseThrow(userId);
         Role role = findRoleByNameOrElseThrow(roleName);
         assertNotTheLastAdmin(user, roleName);
@@ -208,8 +215,14 @@ public class UserService {
             studentRepository.save(student);
         }
 
+        // Правка профиля администратором всегда проходит через выдачу роли, даже когда роль та же:
+        // без этой проверки история пухла бы от «роль STUDENT» на каждом сохранении чужого профиля.
+        boolean roleChanged = !roleName.equals(user.getRole().getName());
         user.setRole(role);
         userSessionService.updateUserAuthorities(user.getEmail());
+        if (roleChanged) {
+            activityService.roleAssigned(user, roleName, actor);
+        }
         return userRepository.save(user);
     }
 
@@ -229,9 +242,10 @@ public class UserService {
     }
 
     @Transactional
-    public void deactivateUser(Long id) {
+    public void deactivateUser(Long id, User actor) {
         User user = findByIdOrElseThrow(id);
         user.setIsEnabled(false);
+        activityService.userDeactivated(user, actor);
         userRepository.save(user);
     }
 

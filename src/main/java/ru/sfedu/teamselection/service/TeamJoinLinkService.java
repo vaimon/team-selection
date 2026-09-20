@@ -37,6 +37,7 @@ public class TeamJoinLinkService {
     private final TrackService trackService;
     private final StudentRepository studentRepository;
     private final SelectionWindowService selectionWindowService;
+    private final ActivityService activityService;
 
     /**
      * Текущий токен команды или {@code null}, если ссылки нет.
@@ -63,6 +64,7 @@ public class TeamJoinLinkService {
 
         team.setJoinToken(newToken());
         teamRepository.save(team);
+        activityService.joinLinkIssued(team, sender);
         log.info("Join link issued for team {} by user {}", teamId, sender.getId());
         return team.getJoinToken();
     }
@@ -80,6 +82,7 @@ public class TeamJoinLinkService {
 
         team.setJoinToken(null);
         teamRepository.save(team);
+        activityService.joinLinkDisabled(team, sender);
         log.info("Join link disabled for team {} by user {}", teamId, sender.getId());
     }
 
@@ -120,7 +123,9 @@ public class TeamJoinLinkService {
         if (student == null) {
             throw new ForbiddenException("Чтобы войти в команду, сначала заполните анкету участника набора");
         }
-        return teamService.addStudentToTeam(team, student, false, null);
+        Team joined = teamService.addStudentToTeam(team, student, false, null);
+        activityService.memberJoined(joined, student, caller);
+        return joined;
     }
 
     private Team byTokenOrElseThrow(String token) {

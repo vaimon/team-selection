@@ -30,7 +30,6 @@ import ru.sfedu.teamselection.service.StudentExportService;
 import ru.sfedu.teamselection.service.StudentService;
 import ru.sfedu.teamselection.service.TeamService;
 import ru.sfedu.teamselection.service.UserService;
-import ru.sfedu.teamselection.service.audit.AuditService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
 import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
@@ -57,8 +56,6 @@ public class StudentControllerTest {
     @MockitoBean
     private UserService userService;
 
-    @MockitoBean
-    private AuditService auditService;
 
     @MockitoBean
     private SimpleAuthenticationSuccessHandler simpleAuthenticationSuccessHandler;
@@ -204,7 +201,7 @@ public class StudentControllerTest {
         Mockito.doReturn(admin).when(userService).getCurrentUser();
         Mockito.doReturn(genericStudent)
                 .when(studentService)
-                .update(Mockito.notNull(), Mockito.notNull(), Mockito.any());
+                .update(Mockito.notNull(), Mockito.notNull(), Mockito.any(), Mockito.any());
 
         String student = """
                 {
@@ -244,7 +241,7 @@ public class StudentControllerTest {
         Mockito.doReturn(genericStudentUser).when(userService).getCurrentUser();
         Mockito.doReturn(genericStudent)
                 .when(studentService)
-                .update(Mockito.notNull(), Mockito.notNull(), Mockito.notNull());
+                .update(Mockito.notNull(), Mockito.notNull(), Mockito.notNull(), Mockito.any());
 
         String student = """
                 {
@@ -286,7 +283,7 @@ public class StudentControllerTest {
         Mockito.doReturn(100500L).when(studentService).getCurrentStudent();
         Mockito.doReturn(genericStudent)
                 .when(studentService)
-                .update(Mockito.notNull(), Mockito.notNull(), Mockito.notNull());
+                .update(Mockito.notNull(), Mockito.notNull(), Mockito.notNull(), Mockito.any());
 
         String student = """
                 {
@@ -330,7 +327,7 @@ public class StudentControllerTest {
 
     @Test
     public void deleteStudentFromNonAdminShouldFail() throws Exception {
-        Mockito.doNothing().when(studentService).delete(Mockito.notNull());
+        Mockito.doNothing().when(studentService).delete(Mockito.notNull(), Mockito.any());
 
         mockMvc.perform(delete(StudentController.DELETE_STUDENT, "1")
                         .with(SecurityMockMvcRequestPostProcessors.csrf())
@@ -340,7 +337,7 @@ public class StudentControllerTest {
 
     @Test
     public void deleteStudent() throws Exception {
-        Mockito.doNothing().when(studentService).delete(Mockito.any());
+        Mockito.doNothing().when(studentService).delete(Mockito.any(), Mockito.any());
 
         mockMvc.perform(delete(StudentController.DELETE_STUDENT, "1")
                         .with(SecurityMockMvcRequestPostProcessors.csrf())
@@ -350,7 +347,7 @@ public class StudentControllerTest {
 
     @Test
     public void deleteStudentNotFromAdminShouldFail() throws Exception {
-        Mockito.doNothing().when(studentService).delete(Mockito.notNull());
+        Mockito.doNothing().when(studentService).delete(Mockito.notNull(), Mockito.any());
 
         mockMvc.perform(delete(StudentController.DELETE_STUDENT, "1")
                         .with(SecurityMockMvcRequestPostProcessors.csrf())

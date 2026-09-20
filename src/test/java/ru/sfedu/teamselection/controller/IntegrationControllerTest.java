@@ -24,7 +24,6 @@ import ru.sfedu.teamselection.dto.integration.IntegrationStudentDto;
 import ru.sfedu.teamselection.dto.integration.IntegrationTeamDto;
 import ru.sfedu.teamselection.dto.integration.IntegrationTrackDto;
 import ru.sfedu.teamselection.service.TrackService;
-import ru.sfedu.teamselection.service.audit.AuditService;
 import ru.sfedu.teamselection.service.integration.IntegrationRosterService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
 import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
@@ -55,8 +54,6 @@ public class IntegrationControllerTest {
     @MockitoBean
     private TrackService trackService;
 
-    @MockitoBean
-    private AuditService auditService;
 
     @MockitoBean
     private Oauth2UserService oauth2UserService;
@@ -131,7 +128,7 @@ public class IntegrationControllerTest {
      */
     @Test
     public void handsTheTrackOverWhenTheKeyMatches() throws Exception {
-        Mockito.when(trackService.handOver(TRACK_ID)).thenReturn(Track.builder()
+        Mockito.when(trackService.handOver(TRACK_ID, null)).thenReturn(Track.builder()
                 .id(TRACK_ID)
                 .handedOverAt(LocalDateTime.of(2026, 11, 2, 12, 30))
                 .build());

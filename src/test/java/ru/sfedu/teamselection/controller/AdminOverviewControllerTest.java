@@ -16,7 +16,6 @@ import ru.sfedu.teamselection.domain.Role;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.AdminOverviewDto;
 import ru.sfedu.teamselection.service.AdminOverviewService;
-import ru.sfedu.teamselection.service.audit.AuditService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
 import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
@@ -42,8 +41,6 @@ class AdminOverviewControllerTest {
     private AzureOidcUserService azureOidcUserService;
     @MockitoBean
     private CurrentAuthoritiesResolver currentAuthoritiesResolver;
-    @MockitoBean
-    private AuditService auditService;
 
     @Autowired
     private MockMvc mockMvc;

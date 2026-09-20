@@ -31,7 +31,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import ru.sfedu.teamselection.config.security.Access;
-import ru.sfedu.teamselection.config.logging.Auditable;
 import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.PageResponse;
@@ -82,7 +81,6 @@ public class StudentController {
     @Operation(summary = "Список свободных и уже в команде студентов")
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(GET_AVAILABLE_STUDENTS)
-    @Auditable(auditPoint = "Student.GetAvailableForTeam")
     public ResponseEntity<List<StudentDto>> getAvailableForTeam(
             @RequestParam("track_id") Long trackId,
             @RequestParam("team_id") Long teamId
@@ -98,7 +96,6 @@ public class StudentController {
     )
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(GET_SEARCH_OPTIONS)
-    @Auditable(auditPoint = "Student.GetSearchOptions")
     public ResponseEntity<StudentSearchOptionsDto> getSearchOptionsStudents(
             @RequestParam(value = "track_id", required = false) Long trackId
     ) {
@@ -113,7 +110,6 @@ public class StudentController {
     @Operation(method = "GET", summary = "Экспорт студентов в CSV по trackId")
     @PreAuthorize(Access.ADMIN)
     @GetMapping(value = "/api/v1/students/export/csv", produces = "text/csv")
-    @Auditable(auditPoint = "Student.ExportCsvByTrack.Csv")
     public ResponseEntity<byte[]> exportCsvByTrack(
             @RequestParam("trackId") Long trackId) {
         byte[] csvData = studentExportService.exportStudentsToCsvByTrack(trackId);
@@ -133,7 +129,6 @@ public class StudentController {
             value = "/api/v1/students/export/excel",
             produces = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
-    @Auditable(auditPoint = "Student.ExportCsvByTrack.Exel")
     public ResponseEntity<byte[]> exportExcelByTrack(
             @RequestParam("trackId") Long trackId) {
         byte[] xlsxData = studentExportService.exportStudentsToExcelByTrack(trackId);
@@ -162,7 +157,6 @@ public class StudentController {
             })
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(SEARCH_STUDENTS)
-    @Auditable(auditPoint = "Student.Search")
     public ResponseEntity<PageResponse<StudentDto>> searchStudents(
             @RequestParam(value = "input", required = false) String input,
             @RequestParam(value = "course", required = false) List<Integer> course,
@@ -199,7 +193,6 @@ public class StudentController {
             method = "GET",
             summary = "Получение списка всех студентов за все время"
     )
-    @Auditable(auditPoint = "Student.FindAll")
     @PreAuthorize(Access.ADMIN)
     @GetMapping(FIND_ALL) // checked
     public ResponseEntity<List<StudentDto>> findAllStudents() {
@@ -214,7 +207,6 @@ public class StudentController {
                     description = "Сущность студента"
             ))
     @PostMapping(CREATE_STUDENT) // checked
-    @Auditable(auditPoint = "Student.Create")
     public ResponseEntity<StudentDto> createStudent(@RequestBody @Valid StudentCreationDto student) {
         StudentDto result = studentDtoMapper.mapToDto(studentService.create(student, userService.getCurrentUser()));
         return ResponseEntity.ok(result);
@@ -229,7 +221,6 @@ public class StudentController {
     )
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(FIND_BY_ID) // checked
-    @Auditable(auditPoint = "Student.FindById")
     public ResponseEntity<StudentDto> findStudentById(@PathVariable(name = "id") Long studentId) {
         StudentDto result = studentDtoMapper.mapToDto(studentService.findByIdOrElseThrow(studentId));
         return ResponseEntity.ok(result);
@@ -250,9 +241,8 @@ public class StudentController {
     )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping(DELETE_STUDENT)
-    @Auditable(auditPoint = "Student.Delete")
     public ResponseEntity<Void> deleteStudent(@PathVariable(value = "id") Long studentId) {
-        studentService.delete(studentId);
+        studentService.delete(studentId, userService.getCurrentUser());
         return ResponseEntity.noContent().build();
     }
 
@@ -269,7 +259,6 @@ public class StudentController {
     )
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(FIND_TEAM_HISTORY)
-    @Auditable(auditPoint = "Student.GetTeamHistory")
     public ResponseEntity<List<TeamDto>> getTeamHistory(@PathVariable(value = "id") Long studentId) {
         List<TeamDto> result = teamService
                 .getTeamHistoryForStudent(studentId)
@@ -309,7 +298,6 @@ public class StudentController {
             consumes = { "application/json" }
     )
     @PreAuthorize("hasRole('ROLE_ADMIN') or @studentService.getCurrentStudent().equals(#id)")
-    @Auditable(auditPoint = "Student.Update")
     public ResponseEntity<StudentDto> updateStudent(
             @PathVariable("id") Long id,
             @Valid @RequestBody StudentUpdateDto studentUpdateDto
@@ -318,7 +306,7 @@ public class StudentController {
         var permission = user.getRole().getName().equals("ADMIN")
                 ? PermissionLevelUpdate.ADMIN
                 : PermissionLevelUpdate.OWNER;
-        Student updated = studentService.update(id, studentUpdateDto, permission);
+        Student updated = studentService.update(id, studentUpdateDto, permission, user);
         StudentDto result = studentDtoMapper.mapToDto(updated);
         if (permission == PermissionLevelUpdate.ADMIN) {
             result.setCompositionWarning(studentService.compositionWarning(updated.getId()));
@@ -327,7 +315,6 @@ public class StudentController {
     }
 
     @GetMapping(GET_STUDENT_ID_BY_CURRENT_USER)
-    @Auditable(auditPoint = "Student.GetCurrentStudentId")
     public ResponseEntity<Long> getCurrentStudentId() {
         Long result = studentService.getCurrentStudent();
         return ResponseEntity.ok(result);

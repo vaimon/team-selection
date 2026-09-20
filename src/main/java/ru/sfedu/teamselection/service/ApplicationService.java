@@ -49,6 +49,7 @@ public class ApplicationService {
     private final ApplicationValidator applicationValidator;
     private final SelectionWindowService selectionWindowService;
     private final TrackService trackService;
+    private final ActivityService activityService;
 
 
     public Application findByIdOrElseThrow(Long id) throws NotFoundException {
@@ -85,9 +86,10 @@ public class ApplicationService {
      * @param id id of the application
      */
     @Transactional
-    public void delete(Long id) {
+    public void delete(Long id, User actor) {
         applicationRepository.findById(id).ifPresent(application -> {
             trackService.assertNotHandedOver(application.getTeam().getCurrentTrack());
+            activityService.applicationDeleted(application, actor);
             applicationRepository.delete(application);
         });
         LOGGER.info("Delete application(id=%s)".formatted(id));
@@ -127,21 +129,14 @@ public class ApplicationService {
             throw new ForbiddenException(((ValidationResult.Forbidden) validationResult).message);
         }
 
-        switch (dto.getStatus()) {
-            case ACCEPTED -> {
-                return accept(existing, sender);
-            }
-            case REJECTED -> {
-                return reject(existing, sender);
-            }
-            case CANCELLED -> {
-                return cancel(existing, sender);
-            }
-            case SENT -> {
-                return resend(existing, sender);
-            }
-            default -> throw new BusinessException("Статус не поддерживается: " + dto.getStatus());
-        }
+        Application answered = switch (dto.getStatus()) {
+            case ACCEPTED -> accept(existing, sender);
+            case REJECTED -> reject(existing, sender);
+            case CANCELLED -> cancel(existing, sender);
+            case SENT -> resend(existing, sender);
+        };
+        activityService.applicationAnswered(answered, sender);
+        return answered;
     }
 
     @Transactional
@@ -161,7 +156,9 @@ public class ApplicationService {
         app.setStatus(SENT);
         app.setStudent(studentService.findByIdOrElseThrow(dto.getStudentId()));
         app.setTeam(teamService.findByIdOrElseThrow(dto.getTeamId()));
-        return applicationRepository.save(app);
+        Application created = applicationRepository.save(app);
+        activityService.applicationSent(created, sender);
+        return created;
     }
 
     /**

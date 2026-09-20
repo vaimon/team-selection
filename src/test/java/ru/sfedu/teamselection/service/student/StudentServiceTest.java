@@ -166,7 +166,7 @@ class StudentServiceTest extends BasicTestContainerTest {
     @Transactional
     void createForReturningStudentMovesThemToTheNewSelectionWithoutTheirOldTeam() {
         Track previous = trackService.getActive();
-        Track next = trackService.startNewSelection(NewSelectionDto.builder().name("Отбор следующего года").build());
+        Track next = trackService.startNewSelection(NewSelectionDto.builder().name("Отбор следующего года").build(), null);
 
         Student actual = underTest.create(StudentCreationDto.builder()
                 .course(2).groupNumber(3).contacts("tg @returning").userId(3L)
@@ -219,7 +219,7 @@ class StudentServiceTest extends BasicTestContainerTest {
     @Test
     @Transactional
     void deleteStudentWithoutTeam() {
-        underTest.delete(1L);
+        underTest.delete(1L, null);
     }
 
     @Test
@@ -229,7 +229,7 @@ class StudentServiceTest extends BasicTestContainerTest {
 
         Team teamBeforeDelete = teamRepository.findById(deleteStudent.getCurrentTeam().getId()).orElseThrow();
 
-        underTest.delete(12L);
+        underTest.delete(12L, null);
         Team teamAfterDelete = teamRepository.findById(teamBeforeDelete.getId()).orElseThrow();
 
         Assertions.assertEquals(1, teamAfterDelete.getStudents().size());
@@ -239,7 +239,7 @@ class StudentServiceTest extends BasicTestContainerTest {
     @Test
     @Transactional
     void deleteCaptainFromTeam() {
-        Assertions.assertThrows(ConstraintViolationException.class, () -> underTest.delete(2L));
+        Assertions.assertThrows(ConstraintViolationException.class, () -> underTest.delete(2L, null));
     }
 
     @Test
@@ -400,7 +400,8 @@ class StudentServiceTest extends BasicTestContainerTest {
         Student actual = underTest.update(
                 beforeUpdateStudent.getId(),
                 studentDto,
-                PermissionLevelUpdate.OWNER
+                PermissionLevelUpdate.OWNER,
+                null
         );
 
         Assertions.assertEquals(studentDto.getAboutSelf(), actual.getAboutSelf());
@@ -427,7 +428,8 @@ class StudentServiceTest extends BasicTestContainerTest {
         Student actual = underTest.update(
                 beforeUpdateStudent.getId(),
                 studentDto,
-                PermissionLevelUpdate.ADMIN
+                PermissionLevelUpdate.ADMIN,
+                null
         );
 
         Assertions.assertEquals(studentDto.getAboutSelf(), actual.getAboutSelf());

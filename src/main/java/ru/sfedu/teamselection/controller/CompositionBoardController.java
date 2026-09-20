@@ -14,7 +14,6 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-import ru.sfedu.teamselection.config.logging.Auditable;
 import ru.sfedu.teamselection.config.security.Access;
 import ru.sfedu.teamselection.dto.board.BoardLeadRequest;
 import ru.sfedu.teamselection.dto.board.BoardMoveRequest;
@@ -63,7 +62,6 @@ public class CompositionBoardController {
     )
     @PreAuthorize(Access.ADMIN)
     @PostMapping(value = MOVES, produces = MediaType.APPLICATION_JSON_VALUE)
-    @Auditable(auditPoint = "Board.Move")
     public CompositionBoardDto move(@Valid @RequestBody BoardMoveRequest request) {
         log.info("ENTER move() endpoint");
         return boardService.move(request, userService.getCurrentUser());
@@ -77,10 +75,9 @@ public class CompositionBoardController {
     )
     @PreAuthorize(Access.ADMIN)
     @PutMapping(value = TARGETS, produces = MediaType.APPLICATION_JSON_VALUE)
-    @Auditable(auditPoint = "Board.SetTargets")
     public CompositionBoardDto setTargets(@PathVariable Long teamId, @Valid @RequestBody BoardTargetsRequest request) {
         log.info("ENTER setTargets() endpoint, teamId={}", teamId);
-        return boardService.setTargets(teamId, request);
+        return boardService.setTargets(teamId, request, userService.getCurrentUser());
     }
 
     @Operation(
@@ -90,7 +87,6 @@ public class CompositionBoardController {
     )
     @PreAuthorize(Access.ADMIN)
     @PostMapping(value = LEAD, produces = MediaType.APPLICATION_JSON_VALUE)
-    @Auditable(auditPoint = "Board.ChangeLead")
     public CompositionBoardDto changeLead(@PathVariable Long teamId, @Valid @RequestBody BoardLeadRequest request) {
         log.info("ENTER changeLead() endpoint, teamId={}", teamId);
         return boardService.changeLead(teamId, request, userService.getCurrentUser());
@@ -104,7 +100,6 @@ public class CompositionBoardController {
     )
     @PreAuthorize(Access.ADMIN)
     @PostMapping(value = DISSOLVE, produces = MediaType.APPLICATION_JSON_VALUE)
-    @Auditable(auditPoint = "Board.Dissolve")
     public CompositionBoardDto dissolve(@PathVariable Long teamId, @Valid @RequestBody BoardVersionRequest request) {
         log.info("ENTER dissolve() endpoint, teamId={}", teamId);
         return boardService.dissolve(teamId, request, userService.getCurrentUser());

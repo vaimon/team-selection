@@ -12,6 +12,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.sfedu.teamselection.domain.Track;
+import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.track.NewSelectionDto;
 import ru.sfedu.teamselection.dto.track.TrackCreationDto;
 import ru.sfedu.teamselection.dto.track.TrackDto;
@@ -36,6 +37,7 @@ public class TrackService {
 
     private final TrackDtoMapper trackDtoMapper;
     private final Clock clock;
+    private final ActivityService activityService;
 
     /**
      * Find Track entity by id
@@ -90,10 +92,11 @@ public class TrackService {
      * Marks the track as handed over. Idempotent: a repeated call keeps the first time, so core may retry.
      */
     @Transactional
-    public Track handOver(Long id) {
+    public Track handOver(Long id, User actor) {
         Track track = findByIdOrElseThrow(id);
         if (track.getHandedOverAt() == null) {
             track.setHandedOverAt(LocalDateTime.now(clock));
+            activityService.handedOver(track, actor);
             log.info("Track {} handed over at {}", id, track.getHandedOverAt());
         } else {
             log.info("Track {} already handed over at {}, nothing to do", id, track.getHandedOverAt());
@@ -103,10 +106,11 @@ public class TrackService {
 
     /** Undoes a mistaken hand-over; the admin is responsible for any divergence from core. */
     @Transactional
-    public Track cancelHandOver(Long id) {
+    public Track cancelHandOver(Long id, User actor) {
         Track track = findByIdOrElseThrow(id);
         log.info("Hand-over of track {} (was {}) cancelled", id, track.getHandedOverAt());
         track.setHandedOverAt(null);
+        activityService.handOverCancelled(track, actor);
         return track;
     }
 
@@ -130,7 +134,7 @@ public class TrackService {
      * becomes read-only history.
      */
     @Transactional
-    public Track startNewSelection(NewSelectionDto dto) {
+    public Track startNewSelection(NewSelectionDto dto, User actor) {
         Optional<Track> previous = trackRepository.findByActiveTrue();
         LocalDate start = dto.getStartDate();
         String name = dto.getName() != null && !dto.getName().isBlank()
@@ -155,7 +159,12 @@ public class TrackService {
             trackRepository.saveAndFlush(track);
         });
         log.info("New selection '{}' started, previous track {}", name, previous.map(Track::getId).orElse(null));
-        return trackRepository.save(next);
+        Track started = trackRepository.save(next);
+        activityService.selectionStarted(started, actor);
+        // purged here rather than by a background job: the only scheduler was removed in #6, and a new
+        // selection is exactly the moment last year's entries stop being needed
+        activityService.purge();
+        return started;
     }
 
     /**
@@ -165,7 +174,7 @@ public class TrackService {
      * @return updated Track entity
      */
     @Transactional
-    public Track update(Long id, TrackDto trackDto) {
+    public Track update(Long id, TrackDto trackDto, User actor) {
         Track existingTrack = findByIdOrElseThrow(id);
         assertWritable(existingTrack);
 
@@ -179,6 +188,7 @@ public class TrackService {
         existingTrack.setSecondYearTarget(
                 Objects.requireNonNullElse(trackDto.getSecondYearTarget(), existingTrack.getSecondYearTarget()));
 
+        activityService.selectionSettingsChanged(existingTrack, actor);
         return trackRepository.save(existingTrack);
     }
 

@@ -19,7 +19,7 @@ import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.track.TrackDto;
 import ru.sfedu.teamselection.mapper.track.TrackDtoMapper;
 import ru.sfedu.teamselection.service.TrackService;
-import ru.sfedu.teamselection.service.audit.AuditService;
+import ru.sfedu.teamselection.service.UserService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
 import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
@@ -39,6 +39,8 @@ class TrackHandOverControllerTest {
     @MockitoBean
     private TrackService trackService;
     @MockitoBean
+    private UserService userService;
+    @MockitoBean
     private TrackDtoMapper trackDtoMapper;
     @MockitoBean
     private SimpleAuthenticationSuccessHandler simpleAuthenticationSuccessHandler;
@@ -48,8 +50,6 @@ class TrackHandOverControllerTest {
     private AzureOidcUserService azureOidcUserService;
     @MockitoBean
     private CurrentAuthoritiesResolver currentAuthoritiesResolver;
-    @MockitoBean
-    private AuditService auditService;
 
     @Autowired
     private MockMvc mockMvc;
@@ -73,7 +73,7 @@ class TrackHandOverControllerTest {
     @Test
     void anAdminHandsOverAndTheBannerTimeIsAnIsoString() throws Exception {
         Track handedOver = Track.builder().id(7L).handedOverAt(LocalDateTime.of(2026, 11, 2, 12, 30)).build();
-        Mockito.doReturn(handedOver).when(trackService).handOver(7L);
+        Mockito.doReturn(handedOver).when(trackService).handOver(Mockito.eq(7L), Mockito.any());
         Mockito.doReturn(TrackDto.builder().id(7L).handedOverAt(handedOver.getHandedOverAt()).build())
                 .when(trackDtoMapper).mapToDtoWithoutTeams(handedOver);
 
@@ -86,14 +86,14 @@ class TrackHandOverControllerTest {
 
     @Test
     void anAdminCancelsAHandOver() throws Exception {
-        Mockito.doReturn(Track.builder().id(7L).build()).when(trackService).cancelHandOver(7L);
+        Mockito.doReturn(Track.builder().id(7L).build()).when(trackService).cancelHandOver(Mockito.eq(7L), Mockito.any());
 
         mockMvc.perform(post(TrackHandOverController.CANCEL_HAND_OVER, 7)
                         .with(SecurityMockMvcRequestPostProcessors.csrf())
                         .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin)))
                 .andExpect(status().isOk());
 
-        Mockito.verify(trackService).cancelHandOver(7L);
+        Mockito.verify(trackService).cancelHandOver(Mockito.eq(7L), Mockito.any());
     }
 
     @Test
@@ -107,7 +107,7 @@ class TrackHandOverControllerTest {
                         .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(student)))
                 .andExpect(status().isForbidden());
 
-        Mockito.verify(trackService, Mockito.never()).handOver(anyLong());
-        Mockito.verify(trackService, Mockito.never()).cancelHandOver(anyLong());
+        Mockito.verify(trackService, Mockito.never()).handOver(anyLong(), Mockito.any());
+        Mockito.verify(trackService, Mockito.never()).cancelHandOver(anyLong(), Mockito.any());
     }
 }

@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 import ru.sfedu.teamselection.api.TechnologyApi;
-import ru.sfedu.teamselection.config.logging.Auditable;
 import ru.sfedu.teamselection.dto.TechnologyDto;
 import ru.sfedu.teamselection.service.TechnologyService;
 
@@ -20,21 +19,18 @@ public class TechnologyController implements TechnologyApi {
 
     private final TechnologyService technologyService;
 
-    @Auditable(auditPoint = "Technology.FindAll")
     public ResponseEntity<List<TechnologyDto>> findAllTechnologies() {
         List<TechnologyDto> result = technologyService.findAll();
         return ResponseEntity.ok(result);
     }
 
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @Auditable(auditPoint = "Technology.CreateTechnology")
     public ResponseEntity<TechnologyDto> createTechnology(@RequestBody TechnologyDto technology) {
         TechnologyDto result = technologyService.create(technology);
         return ResponseEntity.ok(result);
     }
 
     @PreAuthorize("hasRole('ROLE_ADMIN')")
-    @Auditable(auditPoint = "Technology.DeleteTechnology")
     public ResponseEntity<String> deleteTechnology(
             @PathVariable("id") Long id
     ) {
