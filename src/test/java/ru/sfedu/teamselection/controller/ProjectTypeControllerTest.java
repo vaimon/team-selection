@@ -21,7 +21,6 @@ import ru.sfedu.teamselection.dto.ProjectTypeDto;
 import ru.sfedu.teamselection.exception.CustomExceptionHandler;
 import ru.sfedu.teamselection.mapper.ProjectTypeMapper;
 import ru.sfedu.teamselection.repository.ProjectTypeRepository;
-import ru.sfedu.teamselection.service.audit.AuditService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
 import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
@@ -47,8 +46,6 @@ public class ProjectTypeControllerTest {
     @MockitoBean
     private CurrentAuthoritiesResolver currentAuthoritiesResolver;
 
-    @MockitoBean
-    private AuditService auditService;
 
     @MockitoBean
     private ProjectTypeRepository projectTypeRepository;

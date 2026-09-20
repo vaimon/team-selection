@@ -29,7 +29,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 import ru.sfedu.teamselection.config.security.Access;
-import ru.sfedu.teamselection.config.logging.Auditable;
 import ru.sfedu.teamselection.domain.Team;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.PageResponse;
@@ -96,7 +95,6 @@ public class TeamController {
     )
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(GET_SEARCH_OPTIONS)
-    @Auditable(auditPoint = "Team.GetSearchOptionsTeams")
     public ResponseEntity<TeamSearchOptionsDto> getSearchOptionsTeams(
             @RequestParam(value = "track_id", required = false) Long trackId
     ) {
@@ -110,7 +108,6 @@ public class TeamController {
     )
     @PreAuthorize(Access.ADMIN)
     @GetMapping(FIND_ALL) // checked
-    @Auditable(auditPoint = "Team.FindAll")
     public ResponseEntity<List<TeamDto>> findAll() {
         LOGGER.info("ENTER findAll() endpoint");
         List<TeamDto> result = teamService.findAll().stream().map(teamDtoMapper::mapToDto).toList();
@@ -133,7 +130,6 @@ public class TeamController {
             })
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(SEARCH_TEAMS)
-    @Auditable(auditPoint = "Team.Search")
     public ResponseEntity<PageResponse<TeamDto>> search(
             @RequestParam(value = "input", required = false) String like,
             @RequestParam(value = "track_id", required = false) Long trackId,
@@ -165,10 +161,9 @@ public class TeamController {
     )
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping(DELETE_TEAM) // checked
-    @Auditable(auditPoint = "Team.DeleteTeam")
     public ResponseEntity<Void> deleteTeam(@PathVariable(value = "id") Long teamId) {
         LOGGER.info("ENTER deleteTeam(%d) endpoint".formatted(teamId));
-        teamService.delete(teamId);
+        teamService.delete(teamId, userService.getCurrentUser());
         return ResponseEntity.noContent().build();
     }
 
@@ -181,7 +176,6 @@ public class TeamController {
     )
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @GetMapping(FIND_BY_ID) // checked
-    @Auditable(auditPoint = "Team.FindById")
     public ResponseEntity<TeamDto> findById(@PathVariable(name = "id") Long teamId) {
         LOGGER.info("ENTER findById(%d) endpoint".formatted(teamId));
         TeamDto result = teamDtoMapper.mapToDto(teamService.findByIdOrElseThrow(teamId));
@@ -196,7 +190,6 @@ public class TeamController {
             })
     @PreAuthorize("hasRole('ADMIN') or @teamService.isCurrentUserCaptain(#teamId)")
     @GetMapping(FIND_APPLICANTS_BY_ID)
-    @Auditable(auditPoint = "Team.FindApplicantsById")
     public ResponseEntity<List<StudentDto>> findApplicantsById(@PathVariable(value = "id") Long teamId) {
         LOGGER.info("ENTER findApplicantsById(%d) endpoint".formatted(teamId));
         List<StudentDto> result = applicationService.findTeamApplicationsStudents(teamId)
@@ -208,7 +201,6 @@ public class TeamController {
 
     @PreAuthorize(Access.ADMIN)
     @GetMapping(value = "/api/v1/teams/export/csv", produces = "text/csv")
-    @Auditable(auditPoint = "Team.ExportTeamsCsv")
     public ResponseEntity<byte[]> exportTeamsCsv(
             @RequestParam("trackId") Long trackId) {
         byte[] data = teamExportService.exportTeamsToCsvByTrack(trackId);
@@ -223,7 +215,6 @@ public class TeamController {
     @PreAuthorize(Access.ADMIN)
     @GetMapping(value = "/api/v1/teams/export/excel", produces =
             "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-    @Auditable(auditPoint = "Team.ExportTeamsExcel")
     public ResponseEntity<byte[]> exportTeamsExcel(
             @RequestParam("trackId") Long trackId) {
         byte[] data = teamExportService.exportTeamsToExcelByTrack(trackId);
@@ -245,7 +236,6 @@ public class TeamController {
     )
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @PostMapping(CREATE_TEAM)
-    @Auditable(auditPoint = "Team.CreateTeam")
     public ResponseEntity<TeamDto> createTeam(@RequestBody TeamCreationDto team) {
         LOGGER.info("ENTER createTeam() endpoint");
         User sender = userService.getCurrentUser();
@@ -272,7 +262,6 @@ public class TeamController {
     )
     @PreAuthorize("hasRole('ADMIN')")
     @PutMapping(ADD_STUDENT_TO_TEAM)
-    @Auditable(auditPoint = "Team.AddStudentToTeam")
     public ResponseEntity<TeamDto> addStudentToTeam(@PathVariable Long teamId, @PathVariable Long studentId) {
         LOGGER.info("ENTER addStudentToTeam() endpoint");
         User user = userService.getCurrentUser();
@@ -304,7 +293,6 @@ public class TeamController {
             ))
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @PutMapping(UPDATE_TEAM)
-    @Auditable(auditPoint = "Team.UpdateTeam")
     public ResponseEntity<TeamDto> updateTeam(
             @PathVariable Long id,
             @RequestBody @Valid TeamUpdateDto dto
@@ -326,7 +314,6 @@ public class TeamController {
     )
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @PostMapping(REMOVE_MEMBER)
-    @Auditable(auditPoint = "Team.RemoveMember")
     public ResponseEntity<TeamDto> removeMember(@PathVariable Long teamId, @PathVariable Long studentId) {
         LOGGER.info("ENTER removeMember() endpoint");
         User sender = userService.getCurrentUser();
@@ -343,7 +330,6 @@ public class TeamController {
     )
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @PostMapping(LEAVE_TEAM)
-    @Auditable(auditPoint = "Team.LeaveTeam")
     public ResponseEntity<TeamDto> leaveTeam(@PathVariable Long teamId) {
         LOGGER.info("ENTER leaveTeam() endpoint");
         User sender = userService.getCurrentUser();
@@ -361,7 +347,6 @@ public class TeamController {
     )
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @PostMapping(TRANSFER_CAPTAINCY)
-    @Auditable(auditPoint = "Team.TransferCaptaincy")
     public ResponseEntity<TeamDto> transferCaptaincy(@PathVariable Long teamId, @PathVariable Long studentId) {
         LOGGER.info("ENTER transferCaptaincy() endpoint");
         User sender = userService.getCurrentUser();
@@ -382,7 +367,6 @@ public class TeamController {
     )
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @PostMapping(DISBAND_TEAM)
-    @Auditable(auditPoint = "Team.DisbandTeam")
     public ResponseEntity<Void> disbandTeam(@PathVariable Long teamId) {
         LOGGER.info("ENTER disbandTeam() endpoint");
         User sender = userService.getCurrentUser();
@@ -414,9 +398,6 @@ public class TeamController {
     )
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @PostMapping(JOIN_LINK)
-    // без @Auditable намеренно: интерцептор пишет тело ответа в аудит целиком, а телом здесь
-    // является сам токен — он остался бы в таблице открытым текстом и пережил бы отзыв ссылки.
-    // Факт выпуска пишет сам сервис, без токена.
     public ResponseEntity<String> issueJoinLink(@PathVariable Long teamId) {
         LOGGER.info("ENTER issueJoinLink() endpoint");
         User sender = userService.getCurrentUser();
@@ -431,7 +412,6 @@ public class TeamController {
     )
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @PostMapping(DISABLE_JOIN_LINK)
-    @Auditable(auditPoint = "Team.DisableJoinLink")
     public ResponseEntity<Void> disableJoinLink(@PathVariable Long teamId) {
         LOGGER.info("ENTER disableJoinLink() endpoint");
         User sender = userService.getCurrentUser();
@@ -471,7 +451,6 @@ public class TeamController {
     )
     @PreAuthorize(Access.PARTICIPANT_OR_ADMIN)
     @PostMapping(JOIN_BY_TOKEN)
-    @Auditable(auditPoint = "Team.JoinByLink")
     public ResponseEntity<TeamDto> joinByLink(@PathVariable String token) {
         LOGGER.info("ENTER joinByLink() endpoint");
         User caller = userService.getCurrentUser();

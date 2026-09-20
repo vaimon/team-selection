@@ -47,6 +47,7 @@ public class CompositionBoardService {
     private final StudentService studentService;
     private final TeamRepository teamRepository;
     private final CompositionBoardRepository boardRepository;
+    private final ActivityService activityService;
 
     @Transactional(readOnly = true)
     public CompositionBoardDto board() {
@@ -148,6 +149,7 @@ public class CompositionBoardService {
         if (to != null) {
             teamService.addStudentToTeam(to, student, true, null);
         }
+        activityService.memberMoved(student, from, to, sender);
         log.info("Board move by user {}: student {} from team {} to team {}, overTarget={}, newLead={}",
                 sender.getId(), student.getId(), request.fromTeamId(), request.toTeamId(),
                 request.allowOverTarget(), request.newLeadId());
@@ -169,11 +171,12 @@ public class CompositionBoardService {
     }
 
     @Transactional
-    public CompositionBoardDto setTargets(Long teamId, BoardTargetsRequest request) {
+    public CompositionBoardDto setTargets(Long teamId, BoardTargetsRequest request, User sender) {
         Team team = versioned(teamId, request.version());
 
         team.setFirstYearTarget(request.firstYearTarget());
         team.setSecondYearTarget(request.secondYearTarget());
+        activityService.targetsChanged(team, request.firstYearTarget(), request.secondYearTarget(), sender);
         log.info("Board targets of team {} set to {}/{}", teamId, request.firstYearTarget(), request.secondYearTarget());
         return freshBoard();
     }

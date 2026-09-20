@@ -47,6 +47,7 @@ public class StudentService {
 
     private final StudentUpdateFactory studentUpdateFactory;
     private final TrackService trackService;
+    private final ActivityService activityService;
 
     @Lazy
     @Autowired
@@ -169,7 +170,9 @@ public class StudentService {
             student.setUser(user);
             student.setCurrentTrack(active);
             student.setTechnologies(technologyRepository.findAllByIdIn(technologyIds));
-            return studentRepository.save(student);
+            Student registered = studentRepository.save(student);
+            activityService.questionnaireFilled(registered, sender);
+            return registered;
         }
 
         Student student = studentRepository.findByUserId(user.getId());
@@ -185,6 +188,7 @@ public class StudentService {
             student.setIsCaptain(false);
             student.setCurrentTrack(active);
         }
+        activityService.questionnaireFilled(student, sender);
         return studentRepository.save(student);
     }
 
@@ -194,9 +198,10 @@ public class StudentService {
      * @throws NotFoundException in case there is no student with such id
      */
     @Transactional
-    public void delete(Long id) {
+    public void delete(Long id, User actor) {
         Student st = findByIdOrElseThrow(id);
         assertRosterEditable(st);
+        activityService.studentDeleted(st, actor);
         if (Boolean.TRUE.equals(st.getHasTeam())) {
             teamService.removeStudentFromTeam(st.getCurrentTeam(), st);
         }
@@ -211,12 +216,13 @@ public class StudentService {
      * @return updated student
      */
     @Transactional
-    public Student update(Long id, StudentUpdateDto dto, PermissionLevelUpdate permission) {
+    public Student update(Long id, StudentUpdateDto dto, PermissionLevelUpdate permission, User actor) {
         Student student = findByIdOrElseThrow(id);
         assertRosterEditable(student);
 
         studentUpdateFactory.getHandler(permission).update(student, dto);
 
+        activityService.studentUpdated(student, actor);
         return studentRepository.save(student);
     }
 

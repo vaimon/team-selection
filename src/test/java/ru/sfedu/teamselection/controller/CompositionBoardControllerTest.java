@@ -25,7 +25,6 @@ import ru.sfedu.teamselection.enums.ConflictReason;
 import ru.sfedu.teamselection.exception.ConflictException;
 import ru.sfedu.teamselection.service.CompositionBoardService;
 import ru.sfedu.teamselection.service.UserService;
-import ru.sfedu.teamselection.service.audit.AuditService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
 import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
@@ -56,8 +55,6 @@ class CompositionBoardControllerTest {
     private AzureOidcUserService azureOidcUserService;
     @MockitoBean
     private CurrentAuthoritiesResolver currentAuthoritiesResolver;
-    @MockitoBean
-    private AuditService auditService;
 
     @Autowired
     private MockMvc mockMvc;

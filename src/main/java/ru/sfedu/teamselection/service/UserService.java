@@ -57,6 +57,7 @@ public class UserService {
     @Autowired
     private TrackService trackService;
     private final UserSessionService userSessionService;
+    private final ActivityService activityService;
 
     private final UserMapper userMapper;
 
@@ -143,6 +144,15 @@ public class UserService {
         }
     }
 
+    /**
+     * Автор записи в истории (#16). Роль выдаётся и в момент первого входа, когда сессии ещё нет, —
+     * там у действия автора действительно не существует, и это не повод падать.
+     */
+    private User actorOrNobody() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth == null || !auth.isAuthenticated() ? null : getCurrentUser();
+    }
+
     @Transactional
     public User createOrUpdate(UserDto dto, PermissionLevelUpdate permission) {
         if (dto.getId() != null) {
@@ -169,6 +179,7 @@ public class UserService {
                         existing.getStudent(),
                         userToStudentUpdateMapper.userDtoToStudentUpdateDto(dto)
                 );
+                activityService.studentUpdated(existing.getStudent(), actorOrNobody());
             }
 
             return userRepository.save(existing);
@@ -210,6 +221,8 @@ public class UserService {
 
         user.setRole(role);
         userSessionService.updateUserAuthorities(user.getEmail());
+        // автора берём из сессии: роль меняют только через админку, а сигнатура зовётся и изнутри
+        activityService.roleAssigned(user, roleName, actorOrNobody());
         return userRepository.save(user);
     }
 
@@ -232,6 +245,7 @@ public class UserService {
     public void deactivateUser(Long id) {
         User user = findByIdOrElseThrow(id);
         user.setIsEnabled(false);
+        activityService.userDeactivated(user, actorOrNobody());
         userRepository.save(user);
     }
 

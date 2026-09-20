@@ -27,7 +27,6 @@ import ru.sfedu.teamselection.mapper.user.RoleMapper;
 import ru.sfedu.teamselection.mapper.user.UserMapper;
 import ru.sfedu.teamselection.service.PhotoService;
 import ru.sfedu.teamselection.service.UserService;
-import ru.sfedu.teamselection.service.audit.AuditService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
 import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
@@ -53,8 +52,6 @@ public class UserControllerTest {
     @MockitoBean
     private CurrentAuthoritiesResolver currentAuthoritiesResolver;
 
-    @MockitoBean
-    private AuditService auditService;
 
     @MockitoBean
     private UserMapper userMapper;

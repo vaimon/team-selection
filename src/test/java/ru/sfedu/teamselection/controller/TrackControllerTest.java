@@ -24,7 +24,7 @@ import ru.sfedu.teamselection.exception.CustomExceptionHandler;
 import ru.sfedu.teamselection.exception.NotFoundException;
 import ru.sfedu.teamselection.mapper.track.TrackDtoMapper;
 import ru.sfedu.teamselection.service.TrackService;
-import ru.sfedu.teamselection.service.audit.AuditService;
+import ru.sfedu.teamselection.service.UserService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
 import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
@@ -52,11 +52,11 @@ public class TrackControllerTest {
     @MockitoBean
     private CurrentAuthoritiesResolver currentAuthoritiesResolver;
 
-    @MockitoBean
-    private AuditService auditService;
 
     @MockitoBean
     private TrackService trackService;
+    @MockitoBean
+    private UserService userService;
     @MockitoBean
     private TrackDtoMapper TrackDtoMapper;
 
@@ -199,7 +199,7 @@ public class TrackControllerTest {
 
     @Test
     public void whenUpdateTrackFromAdminThenReturn200() throws Exception {
-        Mockito.doReturn(trackList.get(0)).when(trackService).update(Mockito.eq(1L), Mockito.any());
+        Mockito.doReturn(trackList.get(0)).when(trackService).update(Mockito.eq(1L), Mockito.any(), Mockito.any());
         String track = """
                 {
                    "id": 1,
@@ -222,7 +222,7 @@ public class TrackControllerTest {
 
     @Test
     public void whenUpdateTrackNotFromAdminThenReturn403() throws Exception {
-        Mockito.doReturn(trackList.get(0)).when(trackService).update(Mockito.eq(1L), Mockito.any());
+        Mockito.doReturn(trackList.get(0)).when(trackService).update(Mockito.eq(1L), Mockito.any(), Mockito.any());
         String track = """
                 {
                    "id": 1,
@@ -297,7 +297,7 @@ public class TrackControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk());
 
-        Mockito.verify(trackService).startNewSelection(Mockito.any());
+        Mockito.verify(trackService).startNewSelection(Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -309,7 +309,7 @@ public class TrackControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isForbidden());
 
-        Mockito.verify(trackService, Mockito.never()).startNewSelection(Mockito.any());
+        Mockito.verify(trackService, Mockito.never()).startNewSelection(Mockito.any(), Mockito.any());
     }
 
     // access matrix, vaimon/team-selection#7
@@ -354,7 +354,7 @@ public class TrackControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
 
-        Mockito.verify(trackService, Mockito.never()).update(Mockito.any(), Mockito.any());
+        Mockito.verify(trackService, Mockito.never()).update(Mockito.any(), Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -377,7 +377,7 @@ public class TrackControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
 
-        Mockito.verify(trackService, Mockito.never()).update(Mockito.any(), Mockito.any());
+        Mockito.verify(trackService, Mockito.never()).update(Mockito.any(), Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -389,7 +389,7 @@ public class TrackControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
 
-        Mockito.verify(trackService, Mockito.never()).startNewSelection(Mockito.any());
+        Mockito.verify(trackService, Mockito.never()).startNewSelection(Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -401,7 +401,7 @@ public class TrackControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
 
-        Mockito.verify(trackService, Mockito.never()).startNewSelection(Mockito.any());
+        Mockito.verify(trackService, Mockito.never()).startNewSelection(Mockito.any(), Mockito.any());
     }
 
     @Test
@@ -413,7 +413,7 @@ public class TrackControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isBadRequest());
 
-        Mockito.verify(trackService, Mockito.never()).startNewSelection(Mockito.any());
+        Mockito.verify(trackService, Mockito.never()).startNewSelection(Mockito.any(), Mockito.any());
     }
 
     // тот же пользователь, что в studentWithoutQuestionnaireSeesTheCurrentSelection...: студент без

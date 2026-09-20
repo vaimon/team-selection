@@ -212,7 +212,7 @@ public class TrackServiceTest extends BasicTestContainerTest {
                 .build();
 
         // When
-        Track result = trackService.update(trackId, updateDto);
+        Track result = trackService.update(trackId, updateDto, null);
 
         // Then
         assertThat(result).isNotNull();
@@ -240,7 +240,7 @@ public class TrackServiceTest extends BasicTestContainerTest {
                 .build();
 
         // When & Then
-        assertThatThrownBy(() -> trackService.update(nonExistentId, updateDto))
+        assertThatThrownBy(() -> trackService.update(nonExistentId, updateDto, null))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessageContaining(nonExistentId.toString());
     }
@@ -347,7 +347,7 @@ public class TrackServiceTest extends BasicTestContainerTest {
                 .name("Набор 2027")
                 .startDate(LocalDate.of(2027, 10, 1))
                 .endDate(LocalDate.of(2027, 10, 31))
-                .build());
+                .build(), null);
 
         assertThat(actual.getActive()).isTrue();
         assertThat(actual.getFirstYearTarget()).isEqualTo(4);
@@ -362,7 +362,7 @@ public class TrackServiceTest extends BasicTestContainerTest {
     void startNewSelection_withoutName_thenNamedAfterYear() {
         Track actual = trackService.startNewSelection(NewSelectionDto.builder()
                 .startDate(LocalDate.of(2031, 10, 1))
-                .build());
+                .build(), null);
 
         assertThat(actual.getName()).isEqualTo("Набор 2031");
     }
@@ -373,7 +373,7 @@ public class TrackServiceTest extends BasicTestContainerTest {
         active.setActive(false);
         trackRepository.saveAndFlush(active);
 
-        Track actual = trackService.startNewSelection(NewSelectionDto.builder().name("С нуля").build());
+        Track actual = trackService.startNewSelection(NewSelectionDto.builder().name("С нуля").build(), null);
 
         assertThat(actual.getActive()).isTrue();
         assertThat(actual.getFirstYearTarget()).isEqualTo(3);
@@ -394,7 +394,7 @@ public class TrackServiceTest extends BasicTestContainerTest {
     void update_whenTrackIsHistory_thenThrowBusinessException() {
         TrackDto updateDto = TrackDto.builder().name("Renamed").type("bachelor").build();
 
-        assertThatThrownBy(() -> trackService.update(2L, updateDto))
+        assertThatThrownBy(() -> trackService.update(2L, updateDto, null))
                 .isInstanceOf(BusinessException.class);
     }
 
@@ -404,7 +404,7 @@ public class TrackServiceTest extends BasicTestContainerTest {
                 .name("first track").type("bachelor").firstYearTarget(3).secondYearTarget(3).active(false)
                 .build();
 
-        trackService.update(1L, updateDto);
+        trackService.update(1L, updateDto, null);
 
         assertThat(trackService.getActive().getId()).isEqualTo(1L);
     }

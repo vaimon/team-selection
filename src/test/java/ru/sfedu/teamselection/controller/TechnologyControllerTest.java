@@ -21,7 +21,6 @@ import ru.sfedu.teamselection.dto.TechnologyDto;
 import ru.sfedu.teamselection.exception.CustomExceptionHandler;
 import ru.sfedu.teamselection.mapper.TechnologyMapper;
 import ru.sfedu.teamselection.service.TechnologyService;
-import ru.sfedu.teamselection.service.audit.AuditService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
 import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
@@ -46,8 +45,6 @@ public class TechnologyControllerTest {
     @MockitoBean
     private CurrentAuthoritiesResolver currentAuthoritiesResolver;
 
-    @MockitoBean
-    private AuditService auditService;
 
     @MockitoBean
     private TechnologyService technologyService;

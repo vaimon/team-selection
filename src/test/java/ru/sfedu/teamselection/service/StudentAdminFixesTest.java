@@ -110,7 +110,7 @@ class StudentAdminFixesTest extends BasicTestContainerTest {
                 .anyMatch(application -> application.getStudent().getId().equals(STUDENT_WITH_APPLICATION)));
 
         Assertions.assertDoesNotThrow(() -> {
-            studentService.delete(STUDENT_WITH_APPLICATION);
+            studentService.delete(STUDENT_WITH_APPLICATION, null);
             // flush обязателен: без него нарушение внешнего ключа всплыло бы только на коммите
             studentRepository.flush();
         });
