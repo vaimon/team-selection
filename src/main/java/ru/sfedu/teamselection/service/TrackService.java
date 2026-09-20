@@ -9,7 +9,6 @@ import java.util.Objects;
 import java.util.Optional;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.sfedu.teamselection.domain.Track;
@@ -39,9 +38,6 @@ public class TrackService {
     private final TrackDtoMapper trackDtoMapper;
     private final Clock clock;
     private final ActivityService activityService;
-
-    @Value("${app.activity.retention-days:400}")
-    private int retentionDays;
 
     /**
      * Find Track entity by id
@@ -165,9 +161,9 @@ public class TrackService {
         log.info("New selection '{}' started, previous track {}", name, previous.map(Track::getId).orElse(null));
         Track started = trackRepository.save(next);
         activityService.selectionStarted(started, actor);
-        // Чистка истории привязана сюда, а не к фоновой задаче: планировщик из проекта убран (#6),
-        // а старт набора — ровно тот момент, когда прошлогодние записи перестают быть нужны.
-        activityService.purge(retentionDays);
+        // purged here rather than by a background job: the only scheduler was removed in #6, and a new
+        // selection is exactly the moment last year's entries stop being needed
+        activityService.purge();
         return started;
     }
 

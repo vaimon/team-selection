@@ -89,7 +89,7 @@ public class UserController {
         var permission = user.getRole().getName().equals("ADMIN")
                 ? PermissionLevelUpdate.ADMIN
                 : PermissionLevelUpdate.OWNER;
-        UserDto result = userMapper.mapToDto(userService.createOrUpdate(userDto, permission));
+        UserDto result = userMapper.mapToDto(userService.createOrUpdate(userDto, permission, user));
         return ResponseEntity.ok(result);
     }
 
@@ -148,7 +148,7 @@ public class UserController {
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @PostMapping(GRANT_ROLE)
     public ResponseEntity<?> assignRole(@PathVariable Long id, @RequestBody RoleDto roleDto) {
-        userService.assignRole(id, roleDto.getName());
+        userService.assignRole(id, roleDto.getName(), userService.getCurrentUser());
         return ResponseEntity.ok().build();
     }
 
@@ -191,7 +191,7 @@ public class UserController {
     @PreAuthorize("hasRole('ROLE_ADMIN')")
     @DeleteMapping(DELETE_USER)
     public ResponseEntity<String> deleteUser(@PathVariable Long id) {
-        userService.deactivateUser(id);
+        userService.deactivateUser(id, userService.getCurrentUser());
         return ResponseEntity.ok("User with id: " + id + "was deleted");
     }
 

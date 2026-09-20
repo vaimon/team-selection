@@ -128,7 +128,7 @@ class HandOverLockTest extends BasicTestContainerTest {
     void aStudentCannotEditTheirAccountEither() {
         UserDto self = UserDto.builder().id(13L).fio("Новое имя").email("new@sfedu.ru").build();
 
-        assertHandedOver(() -> userService.createOrUpdate(self, PermissionLevelUpdate.OWNER));
+        assertHandedOver(() -> userService.createOrUpdate(self, PermissionLevelUpdate.OWNER, user(13)));
     }
 
     @Test
@@ -171,7 +171,7 @@ class HandOverLockTest extends BasicTestContainerTest {
 
     @Test
     void anAdminCannotDeleteAnApplication() {
-        assertHandedOver(() -> applicationService.delete(5L));
+        assertHandedOver(() -> applicationService.delete(5L, admin));
     }
 
     @Test

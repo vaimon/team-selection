@@ -140,7 +140,7 @@ public class ApplicationController {
     @ResponseStatus(HttpStatus.NO_CONTENT)
     @DeleteMapping(DELETE_APPLICATION) // checked
     public ResponseEntity<Void> delete(@PathVariable Long id) {
-        applicationService.delete(id);
+        applicationService.delete(id, userService.getCurrentUser());
         return ResponseEntity.noContent().build();
     }
 

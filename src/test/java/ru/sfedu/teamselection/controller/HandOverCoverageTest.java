@@ -55,6 +55,7 @@ class HandOverCoverageTest {
             Map.entry("IntegrationController#handOver", "сама передача, её вызывает core"),
             Map.entry("UserController#assignRole", "аккаунт пользователя, а не состав набора"),
             Map.entry("UserController#deleteUser", "деактивация аккаунта, а не состав набора"),
+            Map.entry("ActivityController#purge", "история, а не состав набора"),
             Map.entry("ProjectTypeController#createProjectType", "словарь, не относится к набору"),
             Map.entry("ProjectTypeController#deleteProjectType", "словарь, не относится к набору"),
             Map.entry("TechnologyController#createTechnology", "словарь, не относится к набору"),

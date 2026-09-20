@@ -88,7 +88,7 @@ public class UserControllerTest {
     public void putUser() throws Exception {
         Mockito.doReturn(genericStudentUser)
                 .when(userService).getCurrentUser();
-        Mockito.doReturn(genericStudentUser).when(userService).createOrUpdate(Mockito.notNull(), Mockito.notNull());
+        Mockito.doReturn(genericStudentUser).when(userService).createOrUpdate(Mockito.notNull(), Mockito.notNull(), Mockito.any());
 
         String userDto = """
                 {
@@ -120,7 +120,7 @@ public class UserControllerTest {
                     .build()
                 )
                 .when(userService).getCurrentUser();
-        Mockito.doReturn(genericStudentUser).when(userService).createOrUpdate(Mockito.notNull(), Mockito.notNull());
+        Mockito.doReturn(genericStudentUser).when(userService).createOrUpdate(Mockito.notNull(), Mockito.notNull(), Mockito.any());
 
         String userDto = """
                 {
@@ -144,7 +144,7 @@ public class UserControllerTest {
     public void putUserFromForeignUserShouldFail() throws Exception {
         Mockito.doReturn(genericStudentUser)
                 .when(userService).getCurrentUser();
-        Mockito.doReturn(genericStudentUser).when(userService).createOrUpdate(Mockito.notNull(), Mockito.notNull());
+        Mockito.doReturn(genericStudentUser).when(userService).createOrUpdate(Mockito.notNull(), Mockito.notNull(), Mockito.any());
 
         String userDto = """
                 {
@@ -201,7 +201,7 @@ public class UserControllerTest {
 
     @Test
     public void assignRole() throws Exception {
-        Mockito.doReturn(genericStudentUser).when(userService).assignRole(Mockito.anyLong(), Mockito.anyString());
+        Mockito.doReturn(genericStudentUser).when(userService).assignRole(Mockito.anyLong(), Mockito.anyString(), Mockito.any());
         
         String roleDto = """
                 {
@@ -219,7 +219,7 @@ public class UserControllerTest {
 
     @Test
     public void assignRoleNotFromAdminShouldFail() throws Exception {
-        Mockito.doReturn(genericStudentUser).when(userService).assignRole(Mockito.anyLong(), Mockito.anyString());
+        Mockito.doReturn(genericStudentUser).when(userService).assignRole(Mockito.anyLong(), Mockito.anyString(), Mockito.any());
 
         String roleDto = """
                 {
@@ -239,7 +239,7 @@ public class UserControllerTest {
     public void assignRoleThrowsOnNonExistingRole() throws Exception {
         Mockito.doThrow(new NotFoundException("Role not found"))
                 .when(userService)
-                .assignRole(Mockito.anyLong(), Mockito.anyString());
+                .assignRole(Mockito.anyLong(), Mockito.anyString(), Mockito.any());
 
         String roleDto = """
                 {

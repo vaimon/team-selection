@@ -5,6 +5,9 @@ import java.time.LocalDateTime;
 import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import ru.sfedu.teamselection.domain.Student;
@@ -13,6 +16,7 @@ import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.domain.activity.ActivityEntry;
 import ru.sfedu.teamselection.domain.application.Application;
+import ru.sfedu.teamselection.dto.activity.ActivityEntryDto;
 import ru.sfedu.teamselection.enums.ActivityAction;
 import ru.sfedu.teamselection.repository.ActivityRepository;
 
@@ -32,6 +36,10 @@ public class ActivityService {
 
     private final ActivityRepository activityRepository;
     private final Clock clock;
+
+    /** Набор плюс год: к следующему октябрю прошлогодние разборы состава никому не нужны. */
+    @Value("${app.activity.retention-days:400}")
+    private int retentionDays;
 
     // --- команды ---
 
@@ -116,6 +124,13 @@ public class ActivityService {
     }
 
     @Transactional
+    public void applicationDeleted(Application application, User actor) {
+        record(ActivityAction.APPLICATION_DELETED, actor, application.getTeam(), null, application.getStudent(),
+                "Удалена заявка %s в команду «%s»".formatted(
+                        name(application.getStudent()), name(application.getTeam())));
+    }
+
+    @Transactional
     public void joinLinkIssued(Team team, User actor) {
         record(ActivityAction.JOIN_LINK_ISSUED, actor, team, null, null,
                 "Выдана ссылка-приглашение в команду «%s»".formatted(name(team)));
@@ -145,6 +160,20 @@ public class ActivityService {
     public void studentDeleted(Student student, User actor) {
         record(ActivityAction.STUDENT_DELETED, actor, student.getCurrentTeam(), null, student,
                 "Удалена регистрация студента %s".formatted(name(student)));
+    }
+
+    /** Аккаунт, заведённый администратором вручную, а не первым входом через SSO. */
+    @Transactional
+    public void userCreated(User target, User actor) {
+        record(ActivityAction.USER_CREATED, actor, null, null, null,
+                "Создан пользователь %s".formatted(target.getFio()));
+    }
+
+    /** Правка аккаунта у того, кто анкету не заполнял: администратора или ещё не участника. */
+    @Transactional
+    public void userUpdated(User target, User actor) {
+        record(ActivityAction.USER_UPDATED, actor, null, null, null,
+                "Изменены данные пользователя %s".formatted(target.getFio()));
     }
 
     @Transactional
@@ -188,6 +217,29 @@ public class ActivityService {
     }
 
     // --- чтение и чистка ---
+
+    @Transactional(readOnly = true)
+    public Page<ActivityEntryDto> history(Long teamId, Long studentId, Long actorUserId,
+                                          LocalDateTime from, LocalDateTime to, Pageable pageable) {
+        return activityRepository.search(teamId, studentId, actorUserId, from, to, pageable)
+                .map(entry -> new ActivityEntryDto(
+                        entry.getId(),
+                        entry.getCreatedAt(),
+                        entry.getAction(),
+                        entry.getSummary(),
+                        entry.getActorUserId(),
+                        entry.getActorName(),
+                        entry.getActorEmail(),
+                        entry.getTeamId(),
+                        entry.getRelatedTeamId(),
+                        entry.getStudentId()));
+    }
+
+    /** Чистка по сроку из конфигурации: её зовут и старт нового набора, и ручка админки. */
+    @Transactional
+    public long purge() {
+        return purge(retentionDays);
+    }
 
     @Transactional
     public long purge(int retentionDays) {

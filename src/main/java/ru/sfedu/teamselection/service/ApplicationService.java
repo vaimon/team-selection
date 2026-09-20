@@ -86,9 +86,10 @@ public class ApplicationService {
      * @param id id of the application
      */
     @Transactional
-    public void delete(Long id) {
+    public void delete(Long id, User actor) {
         applicationRepository.findById(id).ifPresent(application -> {
             trackService.assertNotHandedOver(application.getTeam().getCurrentTrack());
+            activityService.applicationDeleted(application, actor);
             applicationRepository.delete(application);
         });
         LOGGER.info("Delete application(id=%s)".formatted(id));
