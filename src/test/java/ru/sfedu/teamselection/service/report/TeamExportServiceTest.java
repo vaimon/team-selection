@@ -75,7 +75,7 @@ class TeamExportServiceTest {
     void exportTeamsToCsvByTrack_ShouldGenerateValidCsv() throws Exception {
         // Arrange
         Long trackId = 1L;
-        when(teamService.search(any(), eq(trackId), any(), any(), any(), any()))
+        when(teamService.search(any(), eq(trackId), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(testTeams));
 
         // Act
@@ -92,7 +92,7 @@ class TeamExportServiceTest {
     void exportTeamsToExcelByTrack_ShouldCreateValidWorkbookStructure() throws Exception {
         // Arrange
         Long trackId = 1L;
-        when(teamService.search(any(), eq(trackId), any(), any(), any(), any()))
+        when(teamService.search(any(), eq(trackId), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(testTeams));
 
         // Act
@@ -126,7 +126,7 @@ class TeamExportServiceTest {
         Long trackId = 1L;
         testTeams.get(0).setCurrentTrack(null);
         testTeams.get(0).setTechnologies(List.of());
-        when(teamService.search(any(), eq(trackId), any(), any(), any(), any()))
+        when(teamService.search(any(), eq(trackId), any(), any(), any(), any(), any()))
                 .thenReturn(new PageImpl<>(testTeams));
 
         // Act
@@ -143,7 +143,7 @@ class TeamExportServiceTest {
     void exportMethods_ShouldThrowExceptionOnServiceError() {
         // Arrange
         Long trackId = 1L;
-        when(teamService.search(any(), eq(trackId), any(), any(), any(), any()))
+        when(teamService.search(any(), eq(trackId), any(), any(), any(), any(), any()))
                 .thenThrow(new RuntimeException("Database error"));
 
         // Act & Assert
