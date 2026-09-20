@@ -498,7 +498,8 @@ class TeamServiceTest extends BasicTestContainerTest {
     void getSearchOptionsTeams() {
         TeamSearchOptionsDto actual = underTest.getSearchOptionsTeams(2L);
 
-        Set<Long> expectedTechnologies = Set.of(4L, 21L, 22L, 24L, 10L, 28L, 29L, 47L, 48L);
+        // 24 («Mobile») ушла из справочника технологий вместе с остальными типами проекта (V2.10)
+        Set<Long> expectedTechnologies = Set.of(4L, 21L, 22L, 10L, 28L, 29L, 47L, 48L);
 
         Assertions.assertEquals(
                 Set.of(1L, 3L, 2L, 4L, 5L, 6L, 7L), // «Other» (8) was dropped by V2.01
