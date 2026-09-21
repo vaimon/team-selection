@@ -289,7 +289,7 @@ public class StudentService {
      */
     @Transactional(readOnly = true)
     public StudentSearchOptionsDto getSearchOptionsStudents(Long trackId) {
-        var students = search(null, trackId, null, null, null, null, null, Pageable.unpaged());
+        var students = search(null, trackId, null, null, null, null, null, null, Pageable.unpaged());
 
         StudentSearchOptionsDto studentSearchOptionsDto = new StudentSearchOptionsDto();
         for (Student student : students) {
