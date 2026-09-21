@@ -28,6 +28,11 @@ public interface UserRepository extends JpaRepository<User, Long>, JpaSpecificat
     @Query("select u from User u join fetch u.role where lower(u.email) = lower(?1)")
     Optional<User> findByEmailFetchRole(String email);
 
-    long countByRoleName(String roleName);
+    /**
+     * Сколько людей с этой ролью могут войти. Отключённых не считаем: такой аккаунт роль держит, а
+     * воспользоваться ею не может — как демо-администратор из V1.002 (#45).
+     */
+    @Query("select count(u) from User u where u.role.name = ?1 and u.isEnabled = true")
+    long countEnabledByRoleName(String roleName);
 }
 

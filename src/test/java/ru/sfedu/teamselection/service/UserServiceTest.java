@@ -20,6 +20,8 @@ import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Technology;
 import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.domain.User;
+import ru.sfedu.teamselection.dto.StudentUpdateDto;
+import ru.sfedu.teamselection.dto.StudentUpdateUserDto;
 import ru.sfedu.teamselection.dto.UserDto;
 import ru.sfedu.teamselection.dto.student.StudentSummaryDto;
 import ru.sfedu.teamselection.exception.BusinessException;
@@ -40,6 +42,9 @@ import ru.sfedu.teamselection.service.security.PermissionLevelUpdate;
 class UserServiceTest extends BasicTestContainerTest {
     @Autowired
     private UserService underTest;
+
+    @Autowired
+    private StudentService studentService;
 
     @Autowired
     private StudentRepository studentRepository;
@@ -464,6 +469,33 @@ class UserServiceTest extends BasicTestContainerTest {
 
         Assertions.assertTrue(refusal.getMessage().contains("последний администратор"), refusal.getMessage());
         Assertions.assertTrue(userRepository.findById(2L).orElseThrow().getIsEnabled());
+    }
+
+    /** Правка пользователя с выключенным флагом входа — третий путь туда же. */
+    @Test
+    void theLastAdminWhoCanSignInCannotBeSwitchedOffByAnEdit() {
+        underTest.assignRole(105L, "ADMIN", null);
+        UserDto switchedOff = UserDto.builder()
+                .id(105L).fio("Куз Нец Ван").email("user_104@_mail").role("ADMIN")
+                .isRemindEnabled(false).isEnabled(false)
+                .build();
+
+        Assertions.assertThrows(BusinessException.class,
+                () -> underTest.createOrUpdate(switchedOff, PermissionLevelUpdate.ADMIN, null));
+    }
+
+    /** И правка анкеты: анкета у администратора остаётся, когда ему дают роль. */
+    @Test
+    void theLastAdminWhoCanSignInCannotBeSwitchedOffThroughTheQuestionnaire() {
+        underTest.assignRole(105L, "ADMIN", null);
+        StudentUpdateDto switchedOff = new StudentUpdateDto()
+                .course(1)
+                .user(new StudentUpdateUserDto().fio("Куз Нец Ван").email("user_104@_mail")
+                        .isEnabled(false).isRemindEnabled(false));
+
+        Assertions.assertThrows(BusinessException.class,
+                () -> studentService.update(105L, switchedOff, PermissionLevelUpdate.ADMIN, null));
+        Assertions.assertTrue(userRepository.findById(105L).orElseThrow().getIsEnabled());
     }
 
     @Test
