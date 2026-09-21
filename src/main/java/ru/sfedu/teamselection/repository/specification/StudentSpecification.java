@@ -44,6 +44,16 @@ public final class StudentSpecification {
                 criteriaBuilder.equal(root.get("currentTrack").get("id"), trackId);
     }
 
+    /**
+     * Участники одной команды (#39). Сравнение по id ссылки, а не по объекту: Hibernate берёт
+     * {@code current_team_id} из самой строки студента, без join, а студент без команды просто не
+     * проходит — сравнение с NULL ложно.
+     */
+    public static Specification<Student> byTeam(Long teamId) {
+        return (root, query, criteriaBuilder) ->
+                criteriaBuilder.equal(root.get("currentTeam").get("id"), teamId);
+    }
+
     public static Specification<Student> byGroup(List<Integer> group) {
 
         return (root, query, criteriaBuilder) -> {

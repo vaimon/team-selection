@@ -151,6 +151,7 @@ public class StudentController {
                 @Parameter(name = "has_team", description = "Состоит ли в команде", in = ParameterIn.QUERY),
                 @Parameter(name = "is_captain", description = "Является ли тимлидом", in = ParameterIn.QUERY),
                 @Parameter(name = "technologies", description = "Список ID технологий", in = ParameterIn.QUERY),
+                @Parameter(name = "team_id", description = "ID команды: только её участники", in = ParameterIn.QUERY),
                 @Parameter(name = "page", description = "Номер страницы", example = "0", in = ParameterIn.QUERY),
                 @Parameter(name = "size", description = "Размер страницы", example = "10", in = ParameterIn.QUERY),
                 @Parameter(name = "sort", description = "Сортировка (field,asc|desc)", example = "name,asc", in = ParameterIn.QUERY)
@@ -165,6 +166,7 @@ public class StudentController {
             @RequestParam(value = "has_team", required = false) Boolean hasTeam,
             @RequestParam(value = "is_captain", required = false) Boolean isCaptain,
             @RequestParam(value = "technologies", required = false) List<Long> technologies,
+            @RequestParam(value = "team_id", required = false) Long teamId,
             @RequestParam(defaultValue = "0") Integer page,
             @RequestParam(defaultValue = "10") Integer size,
             @RequestParam(defaultValue = "name,asc") String sort) {
@@ -183,6 +185,7 @@ public class StudentController {
                         hasTeam,
                         isCaptain,
                         technologies,
+                        teamId,
                         pageable
                 )
                 .map(studentDtoMapper::mapToDto);

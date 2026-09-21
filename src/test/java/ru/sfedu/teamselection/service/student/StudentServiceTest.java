@@ -255,6 +255,7 @@ class StudentServiceTest extends BasicTestContainerTest {
                 null,
                 null,
                 List.of(),
+                null,
                 pageable
         );
 
@@ -278,6 +279,7 @@ class StudentServiceTest extends BasicTestContainerTest {
                 null,
                 null,
                 List.of(),
+                null,
                 pageable
         );
 
@@ -298,6 +300,7 @@ class StudentServiceTest extends BasicTestContainerTest {
                 null,
                 null,
                 groupParam,
+                null,
                 null,
                 null,
                 null,
@@ -324,6 +327,7 @@ class StudentServiceTest extends BasicTestContainerTest {
                 hasTeamParam,
                 null,
                 null,
+                null,
                 pageable
         );
 
@@ -346,6 +350,7 @@ class StudentServiceTest extends BasicTestContainerTest {
                 null,
                 null,
                 isCaptainParam,
+                null,
                 null,
                 pageable
         );
@@ -370,6 +375,7 @@ class StudentServiceTest extends BasicTestContainerTest {
                 null,
                 null,
                 List.of(1L, 2L, 5L),
+                null,
                 pageable
         );
 
@@ -390,12 +396,42 @@ class StudentServiceTest extends BasicTestContainerTest {
         // нельзя "починить" отказом от порядка. Порядок сверяется с обратным запросом, а не с
         // Java-сортировкой: база сортирует по коллации, и для кириллицы они расходятся. Все 7
         // результатов умещаются в одну страницу из 10, так что сравниваются полные списки.
-        Page<Student> descending = underTest.search(null, null, null, null, null, null, technologiesParam,
+        Page<Student> descending = underTest.search(null, null, null, null, null, null, technologiesParam, null,
                 PageRequest.of(defaultPage, defaultPageSize, Sort.by(Sort.Direction.DESC, defaultSort)));
         List<Long> ascendingIds = actual.getContent().stream().map(Student::getId).toList();
         List<Long> descendingIds = new java.util.ArrayList<>(descending.getContent().stream().map(Student::getId).toList());
         java.util.Collections.reverse(descendingIds);
         Assertions.assertEquals(ascendingIds, descendingIds, "порядок задаёт база, а не случай");
+    }
+
+    /** Команда 1 из сида: студенты 2 и 12 (#39). Кроме них — никого. */
+    @Test
+    void searchByTeamReturnsItsMembersAndNobodyElse() {
+        Page<Student> actual = underTest.search(null, null, null, null, null, null, null, 1L, pageable);
+
+        Assertions.assertEquals(
+                java.util.Set.of(2L, 12L),
+                actual.getContent().stream().map(Student::getId).collect(java.util.stream.Collectors.toSet())
+        );
+    }
+
+    /**
+     * Фильтр по команде складывается с остальными, а не заменяет их: «в команде 1» и «без команды»
+     * вместе дают пустоту, и это ответ, а не ошибка запроса.
+     */
+    @Test
+    void teamAndNoTeamTogetherFindNobody() {
+        Page<Student> actual = underTest.search(null, null, null, null, false, null, null, 1L, pageable);
+
+        Assertions.assertEquals(0, actual.getTotalElements());
+    }
+
+    /** Это фильтр, а не поиск записи: несуществующая команда — пустая страница, а не 404. */
+    @Test
+    void anUnknownTeamGivesAnEmptyPage() {
+        Page<Student> actual = underTest.search(null, null, null, null, null, null, null, 999_999L, pageable);
+
+        Assertions.assertEquals(0, actual.getTotalElements());
     }
 
     @Test

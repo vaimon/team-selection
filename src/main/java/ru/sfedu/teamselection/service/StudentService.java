@@ -99,6 +99,7 @@ public class StudentService {
                                 Boolean hasTeam,
                                 Boolean isCaptain,
                                 List<Long> technologies,
+                                Long teamId,
                                 Pageable pageable) {
 
         Specification<Student> spec = (root, query, cb) -> cb.conjunction();
@@ -123,6 +124,9 @@ public class StudentService {
         }
         if (technologies != null && !technologies.isEmpty()) {
             spec = spec.and(StudentSpecification.hasTechnologies(technologies));
+        }
+        if (teamId != null) {
+            spec = spec.and(StudentSpecification.byTeam(teamId));
         }
 
         Sort sort = pageable.getSort();
@@ -288,7 +292,7 @@ public class StudentService {
      */
     @Transactional(readOnly = true)
     public StudentSearchOptionsDto getSearchOptionsStudents(Long trackId) {
-        var students = search(null, trackId, null, null, null, null, null, Pageable.unpaged());
+        var students = search(null, trackId, null, null, null, null, null, null, Pageable.unpaged());
 
         StudentSearchOptionsDto studentSearchOptionsDto = new StudentSearchOptionsDto();
         for (Student student : students) {
