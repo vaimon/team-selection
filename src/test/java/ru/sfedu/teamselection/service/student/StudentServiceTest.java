@@ -382,6 +382,17 @@ class StudentServiceTest extends BasicTestContainerTest {
         }
 
         Assertions.assertEquals(7, actual.getTotalElements());
+
+        // Сортировка по умолчанию (name -> user.fio) и есть то, на чём этот поиск падал (#42): её
+        // нельзя "починить" отказом от порядка. Порядок сверяется с обратным запросом, а не с
+        // Java-сортировкой: база сортирует по коллации, и для кириллицы они расходятся. Все 7
+        // результатов умещаются в одну страницу из 10, так что сравниваются полные списки.
+        Page<Student> descending = underTest.search(null, null, null, null, null, null, technologiesParam,
+                PageRequest.of(defaultPage, defaultPageSize, Sort.by(Sort.Direction.DESC, defaultSort)));
+        List<Long> ascendingIds = actual.getContent().stream().map(Student::getId).toList();
+        List<Long> descendingIds = new java.util.ArrayList<>(descending.getContent().stream().map(Student::getId).toList());
+        java.util.Collections.reverse(descendingIds);
+        Assertions.assertEquals(ascendingIds, descendingIds, "порядок задаёт база, а не случай");
     }
 
     @Test
