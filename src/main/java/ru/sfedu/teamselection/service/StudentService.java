@@ -226,6 +226,10 @@ public class StudentService {
     public Student update(Long id, StudentUpdateDto dto, PermissionLevelUpdate permission, User actor) {
         Student student = findByIdOrElseThrow(id);
         assertRosterEditable(student);
+        // Администратор правит и флаг входа, а анкета бывает и у администратора (#45).
+        if (permission == PermissionLevelUpdate.ADMIN && dto.getUser() != null) {
+            userService.assertNotSwitchingOffTheLastAdmin(student.getUser(), dto.getUser().getIsEnabled());
+        }
 
         studentUpdateFactory.getHandler(permission).update(student, dto);
 

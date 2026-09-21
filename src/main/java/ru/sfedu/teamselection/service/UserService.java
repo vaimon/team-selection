@@ -155,6 +155,7 @@ public class UserService {
             }
 
             if (permission == PermissionLevelUpdate.ADMIN) {
+                assertNotSwitchingOffTheLastAdmin(existing, dto.getIsEnabled());
                 // обновляем роль
                 assignRole(existing.getId(), dto.getRole(), actor);
                 // обновляем остальные поля
@@ -227,23 +228,45 @@ public class UserService {
     }
 
     /**
-     * Не даёт снять ADMIN с последнего администратора.
+     * Не даёт снять ADMIN с последнего администратора, который может войти.
      *
      * <p>Вернуть роль было бы нечем: список {@code app.initial-admin-emails} действует только при
      * создании аккаунта (#17), так что единственным выходом остался бы SQL на проде — ровно то,
      * ради избавления от чего админка и делается.
+     *
+     * <p>Считаются только включённые (#45): отключённый администратор — и демо-аккаунт из V1.002 —
+     * роль держит, но войти с ней не может, и преемником не является. По той же причине снять роль с
+     * того, кто и так не может войти, можно всегда: это никого не лишает доступа.
      */
     private void assertNotTheLastAdmin(User user, String newRoleName) {
-        boolean losingAdmin = ADMIN_ROLE.equals(user.getRole().getName()) && !ADMIN_ROLE.equals(newRoleName);
-        if (losingAdmin && userRepository.countByRoleName(ADMIN_ROLE) <= 1) {
+        if (!ADMIN_ROLE.equals(newRoleName) && isTheLastAdminWhoCanSignIn(user)) {
             throw new BusinessException(
                     "Это последний администратор: сначала назначьте другого, иначе выдать роль будет некому");
+        }
+    }
+
+    private boolean isTheLastAdminWhoCanSignIn(User user) {
+        return ADMIN_ROLE.equals(user.getRole().getName())
+                && Boolean.TRUE.equals(user.getIsEnabled())
+                && userRepository.countEnabledByRoleName(ADMIN_ROLE) <= 1;
+    }
+
+    /**
+     * Второй путь к той же запертой двери (#45): роль остаётся, а войти с ней становится некому.
+     * Выключают аккаунт трижды — отключением, правкой пользователя и правкой анкеты администратором, —
+     * и проверка стоит на каждом из этих путей.
+     */
+    public void assertNotSwitchingOffTheLastAdmin(User user, Boolean nextEnabled) {
+        if (!Boolean.TRUE.equals(nextEnabled) && isTheLastAdminWhoCanSignIn(user)) {
+            throw new BusinessException(
+                    "Это последний администратор, который может войти: без него администрировать будет некому");
         }
     }
 
     @Transactional
     public void deactivateUser(Long id, User actor) {
         User user = findByIdOrElseThrow(id);
+        assertNotSwitchingOffTheLastAdmin(user, false);
         user.setIsEnabled(false);
         activityService.userDeactivated(user, actor);
         userRepository.save(user);

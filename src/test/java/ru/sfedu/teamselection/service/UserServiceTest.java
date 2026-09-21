@@ -20,6 +20,8 @@ import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Technology;
 import ru.sfedu.teamselection.domain.Track;
 import ru.sfedu.teamselection.domain.User;
+import ru.sfedu.teamselection.dto.StudentUpdateDto;
+import ru.sfedu.teamselection.dto.StudentUpdateUserDto;
 import ru.sfedu.teamselection.dto.UserDto;
 import ru.sfedu.teamselection.dto.student.StudentSummaryDto;
 import ru.sfedu.teamselection.exception.BusinessException;
@@ -40,6 +42,9 @@ import ru.sfedu.teamselection.service.security.PermissionLevelUpdate;
 class UserServiceTest extends BasicTestContainerTest {
     @Autowired
     private UserService underTest;
+
+    @Autowired
+    private StudentService studentService;
 
     @Autowired
     private StudentRepository studentRepository;
@@ -387,32 +392,54 @@ class UserServiceTest extends BasicTestContainerTest {
         Assertions.assertEquals("STUDENT", seeded.getRole().getName());
     }
 
-    // --- защита последнего администратора (#10) ---
+    // --- защита последнего администратора (#10, #45) ---
+    //
+    // Администратора каждый тест назначает себе сам: демо-аккаунт V1.002 (пользователь 1, admin_mail)
+    // войти не может, и с #45 правило его не считает — опираться на него значило бы проверять призрака.
+    // Пользователь 7 засеян отключённым: он и есть «администратор, который не может войти».
 
-    /**
-     * В сиде администратор ровно один — пользователь 1. Снять с него роль значит запереть систему:
-     * вернуть её было бы некому, а app.initial-admin-emails работает только при создании аккаунта (#17).
-     */
     @Test
     void theLastAdminCannotBeDemoted() {
-        Assertions.assertEquals(1, userRepository.countByRoleName("ADMIN"));
+        underTest.assignRole(2L, "ADMIN", null);
 
         BusinessException refusal = Assertions.assertThrows(BusinessException.class,
-                () -> underTest.assignRole(1L, "STUDENT", null));
+                () -> underTest.assignRole(2L, "STUDENT", null));
 
         Assertions.assertTrue(refusal.getMessage().contains("последний администратор"), refusal.getMessage());
-        Assertions.assertEquals("ADMIN", userRepository.findById(1L).orElseThrow().getRole().getName());
+        Assertions.assertEquals("ADMIN", userRepository.findById(2L).orElseThrow().getRole().getName());
+    }
+
+    /**
+     * Отключённый администратор — не преемник: войти он не может, и снять роль с последнего, кто
+     * может, значит запереть администрирование так же, как если бы второго не было вовсе.
+     */
+    @Test
+    void aDisabledAdminIsNoSuccessor() {
+        underTest.assignRole(2L, "ADMIN", null);
+        underTest.assignRole(7L, "ADMIN", null);
+        Assertions.assertFalse(userRepository.findById(7L).orElseThrow().getIsEnabled(), "7 is seeded disabled");
+
+        Assertions.assertThrows(BusinessException.class, () -> underTest.assignRole(2L, "STUDENT", null));
+    }
+
+    /** Снять роль с того, кто и так не может войти, — ничего не отнять у тех, кто может. */
+    @Test
+    void anAdminWhoCannotSignInCanBeDemoted() {
+        underTest.assignRole(2L, "ADMIN", null);
+        underTest.assignRole(7L, "ADMIN", null);
+
+        Assertions.assertDoesNotThrow(() -> underTest.assignRole(7L, "STUDENT", null));
+        Assertions.assertEquals("STUDENT", userRepository.findById(7L).orElseThrow().getRole().getName());
     }
 
     @Test
     void withASecondAdminInPlaceTheFirstOneCanBeDemoted() {
         underTest.assignRole(2L, "ADMIN", null);
-        Assertions.assertEquals(2, userRepository.countByRoleName("ADMIN"));
+        underTest.assignRole(3L, "ADMIN", null);
 
-        underTest.assignRole(1L, "STUDENT", null);
+        underTest.assignRole(2L, "STUDENT", null);
 
-        Assertions.assertEquals("STUDENT", userRepository.findById(1L).orElseThrow().getRole().getName());
-        Assertions.assertEquals(1, userRepository.countByRoleName("ADMIN"));
+        Assertions.assertEquals("STUDENT", userRepository.findById(2L).orElseThrow().getRole().getName());
     }
 
     @Test
@@ -424,8 +451,72 @@ class UserServiceTest extends BasicTestContainerTest {
 
     @Test
     void reassigningAdminToSomeoneWhoIsAlreadyAdminIsNotTreatedAsLosingIt() {
-        Assertions.assertDoesNotThrow(() -> underTest.assignRole(1L, "ADMIN", null));
+        underTest.assignRole(2L, "ADMIN", null);
 
-        Assertions.assertEquals("ADMIN", userRepository.findById(1L).orElseThrow().getRole().getName());
+        Assertions.assertDoesNotThrow(() -> underTest.assignRole(2L, "ADMIN", null));
+        Assertions.assertEquals("ADMIN", userRepository.findById(2L).orElseThrow().getRole().getName());
+    }
+
+    /**
+     * Отключение — второй путь к той же запертой двери: роль остаётся, а войти с ней нельзя (#45).
+     */
+    @Test
+    void theLastAdminWhoCanSignInCannotBeDeactivated() {
+        underTest.assignRole(2L, "ADMIN", null);
+
+        BusinessException refusal = Assertions.assertThrows(BusinessException.class,
+                () -> underTest.deactivateUser(2L, null));
+
+        Assertions.assertTrue(refusal.getMessage().contains("последний администратор"), refusal.getMessage());
+        Assertions.assertTrue(userRepository.findById(2L).orElseThrow().getIsEnabled());
+    }
+
+    /** Правка пользователя с выключенным флагом входа — третий путь туда же. */
+    @Test
+    void theLastAdminWhoCanSignInCannotBeSwitchedOffByAnEdit() {
+        underTest.assignRole(105L, "ADMIN", null);
+        UserDto switchedOff = UserDto.builder()
+                .id(105L).fio("Куз Нец Ван").email("user_104@_mail").role("ADMIN")
+                .isRemindEnabled(false).isEnabled(false)
+                .build();
+
+        Assertions.assertThrows(BusinessException.class,
+                () -> underTest.createOrUpdate(switchedOff, PermissionLevelUpdate.ADMIN, null));
+    }
+
+    /** И правка анкеты: анкета у администратора остаётся, когда ему дают роль. */
+    @Test
+    void theLastAdminWhoCanSignInCannotBeSwitchedOffThroughTheQuestionnaire() {
+        underTest.assignRole(105L, "ADMIN", null);
+        StudentUpdateDto switchedOff = new StudentUpdateDto()
+                .course(1)
+                .user(new StudentUpdateUserDto().fio("Куз Нец Ван").email("user_104@_mail")
+                        .isEnabled(false).isRemindEnabled(false));
+
+        Assertions.assertThrows(BusinessException.class,
+                () -> studentService.update(105L, switchedOff, PermissionLevelUpdate.ADMIN, null));
+        Assertions.assertTrue(userRepository.findById(105L).orElseThrow().getIsEnabled());
+    }
+
+    @Test
+    void anAdminCanBeDeactivatedWhileAnotherCanStillSignIn() {
+        underTest.assignRole(2L, "ADMIN", null);
+        underTest.assignRole(3L, "ADMIN", null);
+
+        underTest.deactivateUser(2L, null);
+
+        Assertions.assertFalse(userRepository.findById(2L).orElseThrow().getIsEnabled());
+    }
+
+    /**
+     * Демо-аккаунт V1.002 выключен миграцией V2.13: роль на нём осталась (на неё опираются тестовые
+     * фикстуры и проверки роли в сервисах), но войти с ним нельзя, и правило его больше не считает.
+     */
+    @Test
+    void theDemoAdminOfTheSeedCannotSignIn() {
+        User demo = underTest.findByIdOrElseThrow(1L);
+
+        Assertions.assertEquals("admin_mail", demo.getEmail());
+        Assertions.assertFalse(demo.getIsEnabled());
     }
 }
