@@ -125,6 +125,9 @@ public class StudentService {
         if (technologies != null && !technologies.isEmpty()) {
             spec = spec.and(StudentSpecification.hasTechnologies(technologies));
         }
+        if (teamId != null) {
+            spec = spec.and(StudentSpecification.byTeam(teamId));
+        }
 
         Sort sort = pageable.getSort();
         for (Sort.Order order : sort) {
