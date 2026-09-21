@@ -205,6 +205,9 @@ public class StudentService {
         if (Boolean.TRUE.equals(st.getHasTeam())) {
             teamService.removeStudentFromTeam(st.getCurrentTeam(), st);
         }
+        // Аккаунт остаётся (#38), а он в этой же сессии по-прежнему ссылается на анкету: без разрыва
+        // обратной стороны связи Hibernate на flush увидит, что живой User держит удалённого Student.
+        st.getUser().setStudent(null);
         studentRepository.delete(st);
     }
 
