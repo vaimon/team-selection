@@ -12,6 +12,7 @@ import ru.sfedu.teamselection.BasicTestContainerTest;
 import ru.sfedu.teamselection.TeamSelectionApplication;
 import ru.sfedu.teamselection.domain.Team;
 import ru.sfedu.teamselection.repository.ApplicationRepository;
+import ru.sfedu.teamselection.repository.UserRepository;
 import ru.sfedu.teamselection.repository.StudentRepository;
 import ru.sfedu.teamselection.repository.TeamRepository;
 
@@ -47,6 +48,8 @@ class StudentAdminFixesTest extends BasicTestContainerTest {
     private StudentRepository studentRepository;
     @Autowired
     private ApplicationRepository applicationRepository;
+    @Autowired
+    private UserRepository userRepository;
 
     private Team team() {
         return teamRepository.findById(TEAM).orElseThrow();
@@ -118,5 +121,25 @@ class StudentAdminFixesTest extends BasicTestContainerTest {
         Assertions.assertTrue(studentRepository.findById(STUDENT_WITH_APPLICATION).isEmpty());
         Assertions.assertTrue(applicationRepository.findAll().stream()
                 .noneMatch(application -> application.getStudent().getId().equals(STUDENT_WITH_APPLICATION)));
+    }
+
+    /**
+     * Аккаунт переживает удаление анкеты (#38).
+     *
+     * <p>Лишняя регистрация — ошибка организатора, а учётная запись приходит из SSO и организатору
+     * не принадлежит: человек войдёт снова и заполнит анкету заново. На ту же строку ссылаются
+     * записи журнала действий.
+     */
+    @Test
+    void deletingAStudentKeepsTheirAccount() {
+        Long userId = studentRepository.findById(STUDENT_WITH_APPLICATION).orElseThrow().getUser().getId();
+        Assertions.assertTrue(userRepository.findById(userId).isPresent(), "аккаунт есть до удаления");
+
+        studentService.delete(STUDENT_WITH_APPLICATION, null);
+        studentRepository.flush();
+
+        Assertions.assertTrue(studentRepository.findById(STUDENT_WITH_APPLICATION).isEmpty());
+        Assertions.assertTrue(userRepository.findById(userId).isPresent(),
+                "удалена анкета, а не человек");
     }
 }

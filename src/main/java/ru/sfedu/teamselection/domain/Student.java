@@ -104,7 +104,11 @@ public class Student {
     @Builder.Default
     private List<Application> applications = new ArrayList<>();
 
-    @OneToOne(fetch = FetchType.EAGER, cascade = CascadeType.ALL)
+    // Без REMOVE: удаление анкеты не удаляет человека (#38). Учётная запись приходит из SSO, на неё
+    // ссылается журнал действий, и после удаления лишней регистрации человек должен суметь войти
+    // снова. PERSIST остаётся потому, что UserService сохраняет студента вместе с ещё не
+    // сохранённым пользователем одним вызовом.
+    @OneToOne(fetch = FetchType.EAGER, cascade = {CascadeType.PERSIST, CascadeType.MERGE})
     @JoinColumn(name = "user_id", nullable = false)
     private User user;
 }
