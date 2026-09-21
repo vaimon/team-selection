@@ -99,6 +99,7 @@ public class StudentService {
                                 Boolean hasTeam,
                                 Boolean isCaptain,
                                 List<Long> technologies,
+                                Long teamId,
                                 Pageable pageable) {
 
         Specification<Student> spec = (root, query, cb) -> cb.conjunction();

@@ -183,6 +183,7 @@ public class StudentController {
                         hasTeam,
                         isCaptain,
                         technologies,
+                        null,
                         pageable
                 )
                 .map(studentDtoMapper::mapToDto);
