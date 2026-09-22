@@ -17,6 +17,9 @@ spring:
     schemas: public
     baselineOnMigrate: true
     enabled: true
+    # No db/seed: a fresh prod database gets reference data (roles, technologies, project types)
+    # and no demo users or teams. A database that already applied the seed fails validation here.
+    locations: classpath:db/migration
   jpa:
     hibernate:
       ddl-auto: validate

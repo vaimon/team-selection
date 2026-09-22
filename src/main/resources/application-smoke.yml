@@ -24,7 +24,7 @@ spring:
   flyway:
     # db/smoke holds only an afterMigrate callback, outside the version sequence, so it never
     # competes with the next real migration number.
-    locations: classpath:db/migration,classpath:db/smoke
+    locations: classpath:db/migration,classpath:db/seed,classpath:db/smoke
 
 frontend:
   url: ${FRONTEND_URL:http://localhost:5173}

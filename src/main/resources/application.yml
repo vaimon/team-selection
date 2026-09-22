@@ -26,6 +26,9 @@ spring:
     schemas: public
     baselineOnMigrate: true
     enabled: true
+    # db/seed is demo data (fake students, teams, applications) with versions interleaved among the
+    # real migrations; the prod profile leaves it out.
+    locations: classpath:db/migration,classpath:db/seed
   jpa:
     hibernate:
       ddl-auto: validate
