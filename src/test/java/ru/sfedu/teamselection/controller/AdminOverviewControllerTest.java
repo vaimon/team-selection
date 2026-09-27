@@ -1,5 +1,7 @@
 package ru.sfedu.teamselection.controller;
 
+import java.time.LocalDate;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +17,10 @@ import ru.sfedu.teamselection.config.security.SimpleAuthenticationSuccessHandler
 import ru.sfedu.teamselection.domain.Role;
 import ru.sfedu.teamselection.domain.User;
 import ru.sfedu.teamselection.dto.AdminOverviewDto;
+import ru.sfedu.teamselection.dto.SelectionHistoryDto;
+import ru.sfedu.teamselection.exception.NotFoundException;
 import ru.sfedu.teamselection.service.AdminOverviewService;
+import ru.sfedu.teamselection.service.SelectionHistoryService;
 import ru.sfedu.teamselection.service.security.AzureOidcUserService;
 import ru.sfedu.teamselection.service.security.CurrentAuthoritiesResolver;
 import ru.sfedu.teamselection.service.security.Oauth2UserService;
@@ -33,6 +38,8 @@ class AdminOverviewControllerTest {
 
     @MockitoBean
     private AdminOverviewService adminOverviewService;
+    @MockitoBean
+    private SelectionHistoryService selectionHistoryService;
     @MockitoBean
     private SimpleAuthenticationSuccessHandler simpleAuthenticationSuccessHandler;
     @MockitoBean
@@ -118,5 +125,51 @@ class AdminOverviewControllerTest {
                 .andExpect(status().isBadRequest());
 
         Mockito.verify(adminOverviewService, Mockito.never()).overview(Mockito.anyInt());
+    }
+
+    // --- набор по дням (#49) ---
+
+    private static final String HISTORY = AdminOverviewController.HISTORY;
+
+    @Test
+    void anAdminSeesTheSelectionDayByDayWithDatesAsStrings() throws Exception {
+        Mockito.doReturn(new SelectionHistoryDto(
+                1L,
+                LocalDate.of(2026, 10, 1),
+                LocalDate.of(2026, 10, 31),
+                List.of(new SelectionHistoryDto.Day(LocalDate.of(2026, 10, 2), 28, 12, 129, 173))
+        )).when(selectionHistoryService).history();
+
+        mockMvc.perform(get(HISTORY)
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.trackId").value(1))
+                .andExpect(jsonPath("$.startDate").value("2026-10-01"))
+                .andExpect(jsonPath("$.endDate").value("2026-10-31"))
+                .andExpect(jsonPath("$.days[0].date").value("2026-10-02"))
+                .andExpect(jsonPath("$.days[0].totalTeams").value(28))
+                .andExpect(jsonPath("$.days[0].completeTeams").value(12))
+                .andExpect(jsonPath("$.days[0].studentsInTeams").value(129))
+                .andExpect(jsonPath("$.days[0].registered").value(173));
+    }
+
+    @Test
+    void aStudentIsNotLetNearTheHistory() throws Exception {
+        mockMvc.perform(get(HISTORY)
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(student)))
+                .andExpect(status().isForbidden());
+
+        Mockito.verify(selectionHistoryService, Mockito.never()).history();
+    }
+
+    /** Между наборами истории нет — это пустое состояние обзора, а не ошибка сервера. */
+    @Test
+    void withoutASelectionTheHistoryIsNotFound() throws Exception {
+        Mockito.doThrow(new NotFoundException("Набор не настроен: нет активного набора"))
+                .when(selectionHistoryService).history();
+
+        mockMvc.perform(get(HISTORY)
+                        .with(SecurityMockMvcRequestPostProcessors.oauth2Login().oauth2User(admin)))
+                .andExpect(status().isNotFound());
     }
 }

@@ -7,6 +7,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import ru.sfedu.teamselection.domain.SelectionCounts;
 import ru.sfedu.teamselection.domain.Student;
 import ru.sfedu.teamselection.domain.Team;
 import ru.sfedu.teamselection.domain.TeamComposition;
@@ -45,22 +46,22 @@ public class AdminOverviewService {
         List<Application> pending = applicationRepository.findAllByTeamCurrentTrackIdAndStatus(
                 track.getId(), ApplicationStatus.SENT.toString());
 
+        SelectionCounts counts = SelectionCounts.of(students, teams);
+
         return new AdminOverviewDto(
                 track.getId(),
                 track.getName(),
-                countStudents(students),
-                countTeams(teams),
+                countStudents(students, counts),
+                countTeams(counts),
                 countApplications(pending, pendingOlderThanDays)
         );
     }
 
-    private static AdminOverviewDto.Students countStudents(List<Student> students) {
+    private static AdminOverviewDto.Students countStudents(List<Student> students, SelectionCounts counts) {
         int firstYear = (int) students.stream()
                 .filter(student -> TeamComposition.isFirstYear(student.getCourse()))
                 .count();
-        int withTeam = (int) students.stream()
-                .filter(student -> Boolean.TRUE.equals(student.getHasTeam()))
-                .count();
+        int withTeam = counts.studentsInTeams();
         int firstYearWithoutTeam = (int) students.stream()
                 .filter(student -> TeamComposition.isFirstYear(student.getCourse()))
                 .filter(student -> !Boolean.TRUE.equals(student.getHasTeam()))
@@ -78,11 +79,9 @@ public class AdminOverviewService {
         );
     }
 
-    private static AdminOverviewDto.Teams countTeams(List<Team> teams) {
-        int complete = (int) teams.stream()
-                .filter(team -> TeamComposition.of(team).complete())
-                .count();
-        return new AdminOverviewDto.Teams(teams.size(), complete, teams.size() - complete);
+    private static AdminOverviewDto.Teams countTeams(SelectionCounts counts) {
+        return new AdminOverviewDto.Teams(
+                counts.totalTeams(), counts.completeTeams(), counts.totalTeams() - counts.completeTeams());
     }
 
     private AdminOverviewDto.Applications countApplications(List<Application> pending, int olderThanDays) {
