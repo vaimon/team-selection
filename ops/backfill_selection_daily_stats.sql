@@ -10,10 +10,11 @@
 -- Повторный запуск безопасен: дни, за которые строка уже есть, не трогаются (ON CONFLICT DO NOTHING).
 --
 -- Что восстанавливается точно: вступления, выходы, исключения, перемещения по доске, принятые
--- заявки, создание команд, анкеты. Что приблизительно — и скрипт это считает и печатает:
---   * роспуск: состав распущенной команды в истории не записан, до роспуска она считается
---     командой без людей (итого команд — верно, «в командах» и «собрано» — занижены);
---   * смена целей и курса: прежние значения в истории только текстом — берутся нынешние.
+-- заявки, создание и роспуск команд, анкеты. Состав распущенной команды в записи о роспуске не
+-- указан — он собирается прямым проходом по её собственной истории от создания до роспуска.
+-- Что приблизительно — и скрипт это считает и печатает:
+--   * смена целей и курса: прежние значения в истории только текстом — берутся нынешние;
+--   * тимлид распущенной команды, если команду создавал администратор, а не сам тимлид.
 -- Самопроверка в конце: если откатить всю историю набора, должен остаться пустой набор. Если нет —
 -- печатается, сколько команд, участий и анкет осталось без объяснения в истории.
 DO $$
@@ -30,6 +31,7 @@ DECLARE
     v_targets    int;
     v_updates    int;
     e            record;
+    h            record;
 BEGIN
     SELECT id, start_date, first_year_target, second_year_target
       INTO v_track, v_start, v_fy_target, v_sy_target
@@ -94,7 +96,37 @@ BEGIN
                     DELETE FROM bf_members WHERE team_id = e.team_id;
                     DELETE FROM bf_teams WHERE team_id = e.team_id;
                 WHEN 'TEAM_DISBANDED' THEN
+                    -- Своих целей команда не меняла, если в истории нет TARGETS_CHANGED — тогда цели набора.
                     INSERT INTO bf_teams VALUES (e.team_id, NULL, NULL);
+                    -- Состав на момент роспуска: тимлид — тот, кто создал команду, дальше её история
+                    -- по порядку. Более поздние записи уже откачены, так что эти люди сейчас ни в
+                    -- какой другой команде не числятся.
+                    INSERT INTO bf_members
+                    SELECT e.team_id, s.id
+                      FROM activity_log c JOIN students s ON s.user_id = c.actor_user_id
+                     WHERE c.action = 'TEAM_CREATED' AND c.team_id = e.team_id
+                     LIMIT 1;
+                    FOR h IN
+                        SELECT * FROM activity_log
+                         WHERE track_id = v_track
+                           AND (team_id = e.team_id OR related_team_id = e.team_id)
+                           AND (created_at, id) < (e.created_at, e.id)
+                         ORDER BY created_at, id
+                    LOOP
+                        IF h.action = 'MEMBER_JOINED'
+                           OR (h.action = 'APPLICATION_ANSWERED' AND h.summary LIKE '%: принята')
+                           OR (h.action = 'MEMBER_MOVED' AND h.team_id = e.team_id AND h.related_team_id IS NOT NULL)
+                           OR (h.action = 'MEMBER_MOVED' AND h.team_id = e.team_id AND h.related_team_id IS NULL
+                               AND NOT EXISTS (SELECT 1 FROM bf_members
+                                                WHERE team_id = e.team_id AND student_id = h.student_id)) THEN
+                            INSERT INTO bf_members
+                            SELECT e.team_id, h.student_id
+                             WHERE NOT EXISTS (SELECT 1 FROM bf_members
+                                                WHERE team_id = e.team_id AND student_id = h.student_id);
+                        ELSIF h.action IN ('MEMBER_LEFT', 'MEMBER_REMOVED', 'MEMBER_MOVED') THEN
+                            DELETE FROM bf_members WHERE team_id = e.team_id AND student_id = h.student_id;
+                        END IF;
+                    END LOOP;
                 WHEN 'QUESTIONNAIRE_FILLED' THEN
                     DELETE FROM bf_registered WHERE student_id = e.student_id;
                 WHEN 'STUDENT_DELETED' THEN
@@ -141,8 +173,9 @@ BEGIN
       FROM activity_log WHERE track_id = v_track;
 
     RAISE NOTICE 'Набор %: записано дней — %', v_track, v_written;
-    RAISE NOTICE 'Приблизительно: роспусков — %, смен целей и настроек — %, правок анкет — %',
-        v_disbands, v_targets, v_updates;
+    RAISE NOTICE 'Роспусков восстановлено по истории — %', v_disbands;
+    RAISE NOTICE 'Приблизительно (берутся нынешние значения): смен целей и настроек — %, правок анкет — %',
+        v_targets, v_updates;
     RAISE NOTICE 'Самопроверка (до первой записи набора должно быть 0/0/0): команд — %, участий — %, анкет — %',
         (SELECT count(*) FROM bf_teams), (SELECT count(*) FROM bf_members), (SELECT count(*) FROM bf_registered);
 END $$;
