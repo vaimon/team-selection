@@ -6,6 +6,7 @@ import java.util.Objects;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -36,6 +37,7 @@ public class ActivityService {
 
     private final ActivityRepository activityRepository;
     private final Clock clock;
+    private final ApplicationEventPublisher events;
 
     /** Набор плюс год: к следующему октябрю прошлогодние разборы состава никому не нужны. */
     @Value("${app.activity.retention-days:400}")
@@ -275,6 +277,10 @@ public class ActivityService {
                 .summary(summary)
                 .createdAt(LocalDateTime.now(clock))
                 .build());
+        // Всё, что меняет счётчики набора, проходит здесь — поэтому и сигнал пересчитать их (#49).
+        if (track != null) {
+            events.publishEvent(new ActivityRecorded(track.getId()));
+        }
     }
 
     private static String name(Team team) {

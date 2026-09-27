@@ -129,7 +129,7 @@ class AdminOverviewControllerTest {
 
     // --- набор по дням (#49) ---
 
-    private static final String HISTORY = "/api/v1/admin/overview/history";
+    private static final String HISTORY = AdminOverviewController.HISTORY;
 
     @Test
     void anAdminSeesTheSelectionDayByDayWithDatesAsStrings() throws Exception {

@@ -14,7 +14,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import ru.sfedu.teamselection.config.security.Access;
 import ru.sfedu.teamselection.dto.AdminOverviewDto;
+import ru.sfedu.teamselection.dto.SelectionHistoryDto;
 import ru.sfedu.teamselection.service.AdminOverviewService;
+import ru.sfedu.teamselection.service.SelectionHistoryService;
 
 @Slf4j
 @Validated
@@ -22,11 +24,13 @@ import ru.sfedu.teamselection.service.AdminOverviewService;
 @RequiredArgsConstructor
 public class AdminOverviewController {
     public static final String OVERVIEW = "/api/v1/admin/overview";
+    public static final String HISTORY = OVERVIEW + "/history";
 
     /** Сколько дней заявка должна провисеть, чтобы считаться залежавшейся, если не спросили иначе. */
     private static final String DEFAULT_STALE_DAYS = "3";
 
     private final AdminOverviewService adminOverviewService;
+    private final SelectionHistoryService selectionHistoryService;
 
     @Operation(
             method = "GET",
@@ -50,5 +54,21 @@ public class AdminOverviewController {
     ) {
         log.info("ENTER overview() endpoint, pendingOlderThanDays={}", pendingOlderThanDays);
         return adminOverviewService.overview(pendingOlderThanDays);
+    }
+
+    @Operation(
+            method = "GET",
+            summary = "Текущий набор по дням",
+            description = """
+                Сколько команд собрано, сколько всего, сколько людей в командах и сколько
+                зарегистрировалось — на конец каждого дня окна, от первого записанного дня
+                до сегодня; сегодня — на эту минуту. Только для администратора.
+                """
+    )
+    @PreAuthorize(Access.ADMIN)
+    @GetMapping(value = HISTORY, produces = MediaType.APPLICATION_JSON_VALUE)
+    public SelectionHistoryDto history() {
+        log.info("ENTER history() endpoint");
+        return selectionHistoryService.history();
     }
 }
